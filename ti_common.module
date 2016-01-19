@@ -10,1311 +10,1243 @@
  *
  * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_menu/7 hook_menu
  */
-function ti_common_menu(){
-	$menu = array();
+function ti_common_menu()
+{
+    $menu = array();
 
-	$menu['products'] = array(
-		'title' => t('Products'),
-		'description' => t('Browse prodcts'),
-		'page callback' => 'ti_empty_page',
-		'access arguments' => array('access content'),
-		'type' => MENU_CALLBACK,
-	);
-
-	$menu['products/featured'] = array(
-		'title' => t('Featured Products'),
-		'description' => t('Browse featured prodcts'),
-		'page callback' => 'ti_empty_page',
-		'access arguments' => array('access content'),
-		'type' => MENU_CALLBACK,
-	);
-
-	$menu['designers'] = array(
-		'title' => t('Designers'),
-		'description' => t('Browse the designers'),
-		'page callback' => 'ti_empty_page',
-		'access arguments' => array('access content'),
-		'type' => MENU_CALLBACK,
-	);
-
-	$menu['designers/%user'] = array(
-		'title callback' => '_ti_common_shop_title',
-		'description' => t('Browse the shop'),
-		'page callback' => 'ti_empty_page',
-		'access arguments' => array('access content'),
-		'type' => MENU_CALLBACK,
-	);
-
-	$menu['user/%user/subscription'] = array(
-		'title' => t('Subscription'),
-		'title callback' => FALSE,
-		'description' => t('Subscription and credit points management page'),
-		'page callback' => 'ti_empty_page',
-		'access arguments' => array('access account page'),
-		'type' => MENU_LOCAL_TASK,
-	);
-
-	/*$menu['user/%user/cancel'] = array(
-		'title' => t('Confirmation'),
-		'title callback' => FALSE,
-		'description' => t('Confirming about subscription cancellation'),
-		'page callback' => 'drupal_get_form',
-		'page arguments' => array(),
-		'access arguments' => array('access account page'),
-		'type' => MENU_CALLBACK,
-	);*/
-
-	$menu['account'] = array(
-		'title' => t('My Account'),
-		'description' => t('My Account page'),
-		'page callback' => 'ti_empty_page',
-		'access arguments' => array('access account page'),
-		'type' => MENU_CALLBACK,
-	);
-
-	$menu['account/myshop'] = array(
-    'title' => t('Shop Dashboard'),
-    'description' => t('Shop Dashboard'),
-    'page callback' => 'ti_empty_page',
-    'access arguments' => array('access account page'),
-    'type' => MENU_CALLBACK,
-  );
-
-	$menu['account/myshop/edit'] = array(
-    'title' => t('Edit Shop Information'),
-    'description' => t('Edit Shop Information'),
-    'page callback' => '_ti_common_shop_edit',
-    'access arguments' => array('access account page'),
-    'type' => MENU_CALLBACK,
-  );
-
-	$menu['account/myshop/subscription'] = array(
-    'title' => t('Shop Dashboard'),
-    'description' => t('Shop Dashboard'),
-    'page callback' => 'ti_empty_page',
-    'access arguments' => array('access account page'),
-    'type' => MENU_CALLBACK,
-	);
-
-	$menu['account/myshop/orders'] = array(
-    'title' => t('My Orders'),
-    'description' => t('My Orders'),
-    'page callback' => 'ti_empty_page',
-    'access arguments' => array('access account page'),
-    'type' => MENU_CALLBACK,
-  );
-
-	return $menu;
-}
-
-/**
-	*	Title callback for 'designers/%user' path
-	*/
-function _ti_common_shop_title() {
-	global $user;
-	$result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', arg(1))->execute();
-	$id = $result->fetchAssoc()['id'];
-	if (!empty($id)) {
-		$store = entity_load('commerce_store', array($id));
-		$storew = entity_metadata_wrapper('commerce_store', $id);
-	}
-	else {
-		return NULL;
-	}
-	return $storew->title->value();
-}
-
-/**
-	*	Page callback for menu entry against 'account/myshop/edit' path
-	*/
-function _ti_common_shop_edit() {
-	global $user;
-	$result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
-	$id = $result->fetchAssoc()['id'];
-  if (is_numeric($id)) {
-    $entities = entity_load('commerce_store', array($id));
-    $entity = $entities[$id];
-  }
-
-  return drupal_get_form("eck__entity__form_edit_commerce_store_store", $entity);
-}
-
-/**
-  * A access callback function to test if user is registered user or he has 'administer users' rights.
-  */
-function ti_common_user_edit_access(){
-	global $user;
-	return user_access('administer users') || $user->uid > 0;
-}
-
-/**
-  * Callback function to populate user edit profile form
-  */
-/*function ti_common_user_profile_form($form, &$form_state) {
-	global $user;
-	$account = $user;
-	$category = 'account';
-
-	// During initial form build, add the entity to the form state for use during
-  // form building and processing. During a rebuild, use what is in the form
-  // state.
-  if (!isset($form_state['user'])) {
-    $form_state['user'] = $account;
-  }
-  else {
-    $account = $form_state['user'];
-  }
-
-  // @todo Legacy support. Modules are encouraged to access the entity using
-  //   $form_state. Remove in Drupal 8.
-  $form['#user'] = $account;
-  $form['#user_category'] = $category;
-
-  if ($category == 'account') {
-    user_account_form($form, $form_state);
-    // Attach field widgets.
-    $langcode = entity_language('user', $account);
-    field_attach_form('user', $account, $form, $form_state, $langcode);
-  }
-
-  $form['actions'] = array('#type' => 'actions');
-  $form['actions']['submit'] = array(
-    '#type' => 'submit',
-    '#value' => t('Save'),
-  );
-  if ($category == 'account') {
-    $form['actions']['cancel'] = array(
-      '#type' => 'submit',
-      '#value' => t('Cancel account'),
-      '#submit' => array('user_edit_cancel_submit'),
-      '#access' => $account->uid > 1 && (($account->uid == $user->uid && user_access('cancel account')) || user_access('administer users')),
+    $menu['products'] = array(
+        'title' => t('Products'),
+        'description' => t('Browse prodcts'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
     );
-  }
 
-  $form['#validate'][] = 'user_profile_form_validate';
-  // Add the final user profile form submit handler.
-  $form['#submit'][] = 'user_profile_form_submit';
+    $menu['products/featured'] = array(
+        'title' => t('Featured Products'),
+        'description' => t('Browse featured prodcts'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+    );
 
-  return $form;
-}*/
+    $menu['designers'] = array(
+        'title' => t('Designers'),
+        'description' => t('Browse the designers'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+    );
 
-/**
-	*	Implements hook_permission
-	*
-	* @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_permission/7 hook_permission
-	*/
-function ti_common_permission(){
-	$list = array();
+    $menu['designers/%user'] = array(
+        'title callback' => '_ti_common_shop_title',
+        'description' => t('Browse the shop'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+    );
 
-	$list['access account page'] = array(
-		'title' => t('Access account page'),
-		'description' => t('Users can view account pages'),
-	);
+    $menu['user/%user/subscription'] = array(
+        'title' => t('Subscription'),
+        'title callback' => FALSE,
+        'description' => t('Subscription and credit points management page'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access account page'),
+        'type' => MENU_LOCAL_TASK,
+    );
 
-	return $list;
+    $menu['account'] = array(
+        'title' => t('My Account'),
+        'description' => t('My Account page'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access account page'),
+        'type' => MENU_CALLBACK,
+    );
+
+    $menu['account/myshop'] = array(
+        'title' => t('Shop Dashboard'),
+        'description' => t('Shop Dashboard'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access account page'),
+        'type' => MENU_CALLBACK,
+    );
+
+    $menu['account/myshop/edit'] = array(
+        'title' => t('Edit Shop Information'),
+        'description' => t('Edit Shop Information'),
+        'page callback' => '_ti_common_shop_edit',
+        'access arguments' => array('access account page'),
+        'type' => MENU_CALLBACK,
+    );
+
+    $menu['account/myshop/subscription'] = array(
+        'title' => t('Shop Dashboard'),
+        'description' => t('Shop Dashboard'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access account page'),
+        'type' => MENU_CALLBACK,
+    );
+
+    $menu['account/myshop/orders'] = array(
+        'title' => t('My Orders'),
+        'description' => t('My Orders'),
+        'page callback' => 'ti_empty_page',
+        'access arguments' => array('access account page'),
+        'type' => MENU_CALLBACK,
+    );
+
+    return $menu;
 }
 
 /**
-	*	Page callback to provide empty content in favor of building page via hook_preprocess_page
-	* custom template and direct block rendering via API calls.
-	*/
-function ti_empty_page() {
-	return "";
+ *    Title callback for 'designers/%user' path
+ */
+function _ti_common_shop_title()
+{
+    global $user;
+    $result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', arg(1))->execute();
+    $id = $result->fetchAssoc()['id'];
+    if (!empty($id)) {
+        $store = entity_load('commerce_store', array($id));
+        $storew = entity_metadata_wrapper('commerce_store', $id);
+    } else {
+        return NULL;
+    }
+    return $storew->title->value();
 }
 
 /**
-	*	Implements hook_admin_paths_alter.
-	*
-	* @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_admin_paths_alter/7 hook_admin_path_alter
-	* All the listed paths are required to open in admin theme.
-	*/
-function ti_common_admin_paths_alter(&$paths) {
-  $paths['account/myshop/edit'] = TRUE;
-  $paths['messages'] = TRUE;
-  $paths['messages/list'] = TRUE;
-  $paths['messages/sent'] = TRUE;
-  $paths['messages/new'] = TRUE;
-  $paths['messages/new/*'] = TRUE;
-  $paths['messages/view/*'] = TRUE;
+ *    Page callback for menu entry against 'account/myshop/edit' path
+ */
+function _ti_common_shop_edit()
+{
+    global $user;
+    $result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
+    $id = $result->fetchAssoc()['id'];
+    if (is_numeric($id)) {
+        $entities = entity_load('commerce_store', array($id));
+        $entity = $entities[$id];
+    }
+
+    return drupal_get_form("eck__entity__form_edit_commerce_store_store", $entity);
 }
 
 /**
-	*	Implements hook_preprocess_HOOK
-	*
-	* The implementation has moved from module to trendy Indie theme template.php
-	* @see https://api.drupal.org/api/drupal/modules%21system%21theme.api.php/function/hook_preprocess_HOOK/7 hook_preprocess_HOOK
-	*/
-function ti_common_preprocess_page(&$vars){
-	/*global $user;
-	$page_query = $_GET['q'];
-	$vars['user'] = $user;
-	$profile_page = preg_match('/user\/\d+$/', $page_query);
-	
-	if($profile_page && arg(1) == $user->uid) {
-		$vars['theme_hook_suggestions'][] = 'page__account';	
-	} else if($profile_page) {
-		$vars['theme_hook_suggestions'][] = 'page__account_public';
-	}*/
-
-	/*$order = entity_metadata_wrapper('commerce_order', '67');
-	foreach($order as $prop => $val) {
-		debug($prop);
-		debug($val->value());
-	}*/
+ * A access callback function to test if user is registered user or he has 'administer users' rights.
+ */
+function ti_common_user_edit_access()
+{
+    global $user;
+    return user_access('administer users') || $user->uid > 0;
 }
 
 /**
-	*	Implements hook_menu_alter
-	* 
-	* Few path routes are discarded here. 
-	* And few paths are updated for route settings 
-	*
-	* @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_menu_alter/7 hook_menu_alter
-	*/
-function ti_common_menu_alter(&$paths){
-		$banned_paths = array(
-			'user/%user/stores',
-			'user/%user/connections',
-			'user/%user/credits-user-balance',
-			'user/%/messages',
-		);
+ *    Implements hook_permission
+ *
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_permission/7 hook_permission
+ */
+function ti_common_permission()
+{
+    $list = array();
 
-		foreach($banned_paths as $path){
-			if(isset($paths[$path])){
-				$paths[$path] = FALSE;
-			}
-		}
+    $list['access account page'] = array(
+        'title' => t('Access account page'),
+        'description' => t('Users can view account pages'),
+    );
 
-		$paths['user/%user']['title callback'] = 'ti_common_account_page_title';
-		$paths['user/%user/subscription']['title callback'] = FALSE;
-		
+    return $list;
 }
 
 /**
-	*	A callback function to retrieve display name of a user
-	* @param user $user (optional) An intended user to get her name otherwise the current user would be considered.
-	* @api
-	*/
-function ti_common_user_name($user=NULL) {
-	if (is_null($user)) {
-		global $user;
-	}
-	$account = entity_metadata_wrapper('user', $user->uid);
-	$fname = $lname = '';
-	if (property_exists($account, 'field_first_name'))
-		$fname = $account->field_first_name->value();
-	if (property_exists($account, 'field_last_name'))
-	
-	$lname = $account->field_last_name->value();
-	
-	if (!empty($fname) && !empty($lname)) {
-		return t('@first_name @last_name', array(
-			'@first_name' => $account->field_first_name->value(), 
-			'@last_name' => $account->field_last_name->value())
-		);
-	} else {
-		return $account->name->value();
-	}
+ *    Page callback to provide empty content in favor of building page via hook_preprocess_page
+ * custom template and direct block rendering via API calls.
+ */
+function ti_empty_page()
+{
+    return "";
 }
 
 /**
-	*	A callback to return user name with prepended "Hello, "
-	* 
-	* @param user $user (optional) An intended user to get her name otherwise the current user would be considered.
-	*/
-function ti_common_account_page_title($user=NULL){
-	return t('Welcome back, @name', array('@name' => ti_common_user_name()));
+ *    Implements hook_admin_paths_alter.
+ *
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_admin_paths_alter/7 hook_admin_path_alter
+ * All the listed paths are required to open in admin theme.
+ */
+function ti_common_admin_paths_alter(&$paths)
+{
+    $paths['account/myshop/edit'] = TRUE;
+    $paths['messages'] = TRUE;
+    $paths['messages/list'] = TRUE;
+    $paths['messages/sent'] = TRUE;
+    $paths['messages/new'] = TRUE;
+    $paths['messages/new/*'] = TRUE;
+    $paths['messages/view/*'] = TRUE;
 }
 
- /**
-   * Implements hook_block_info
-   * 
-   * This hook introduces a list of blocks identified by delta values as keys in the array structure.
-   * 
-   * @see https://api.drupal.org/api/drupal/modules%21block%21block.api.php/function/hook_block_info/7 hook_block_info
-   */
-function ti_common_block_info(){
-	$blocks = array();
 
-	$blocks['subscription_credits'] = array(
-		'info' => t('Subscription &amp; Credits'),
-	);
+/**
+ *    Implements hook_menu_alter
+ *
+ * Few path routes are discarded here.
+ * And few paths are updated for route settings
+ *
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_menu_alter/7 hook_menu_alter
+ */
+function ti_common_menu_alter(&$paths)
+{
+    $banned_paths = array(
+        'user/%user/stores',
+        'user/%user/connections',
+        'user/%user/credits-user-balance',
+        'user/%/messages',
+    );
 
-	$blocks['credits'] = array(
-		'info' => t('Credits'),
-	);
+    foreach ($banned_paths as $path) {
+        if (isset($paths[$path])) {
+            $paths[$path] = FALSE;
+        }
+    }
 
-	$blocks['my_subscription'] = array(
-		'info' => t('My Subscription'),
-	);
+    $paths['user/%user']['title callback'] = 'ti_common_account_page_title';
+    $paths['user/%user/subscription']['title callback'] = FALSE;
 
-	$blocks['my_credits'] = array(
-		'info' => t('Credits'),
-	);
-
-	$blocks['shop_activation_form'] = array(
-		'info' => t('Activate your online shop'),
-	);
-
-	$blocks['manage_my_shop'] = array(
-		'info' => t('Manage My Shop'),
-	);
-
-	$blocks['profile_settings'] = array(
-		'info' => t('Profile Settings'),
-	);
-
-	$blocks['favorite_items'] = array(
-		'info' => t('My Favorite Items'),
-	);
-
-	$blocks['favorite_stores'] = array(
-		'info' => t('My Favorite Stores'),
-	);
-
-	$blocks['product_store_info'] = array(
-		'info' => t('Product Store Info'),
-	);
-
-	$blocks['my_messages'] = array(
-		'info' => t('My Messages'),
-	);
-
-	$blocks['contact_shop'] = array(
-		'info' => t('Contact the Shop'),
-	);
-	$blocks['designers_header_info'] = array(
-		'info' => t('Designer Shop Information'),
-	);
-
-	$blocks['featured_designers_info'] = array(
-		'info' => t('Featured Designer'),
-	);
-	$blocks['designer_products_view'] = array(
-		'info' => t('Designers Products list'),
-	);
-	$blocks['home_featured_designer'] = array(
-		'info' => t('Home Featured Designer'),
-	);
-	$blocks['artist_of_the_week'] = array(
-		'info' => t('Artist of the week'),
-	);
-	$blocks['my_orders'] = array(
-		'info' => t('My Orders'),
-	);
-	return $blocks;
 }
 
 /**
-  * Implements hook_block_view
-  *
-  * The hooks provides the block contents register in hook_block_info.
-  *
-  * @param string $delta Block id defined in hook_block_info
-  *
-  * - block: subscription_credits Provides the current user subscrription status and credits in hand
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
-  * 
-  * - block: credits Provides the current user info about credits in hand, expiry date and access to buy more credits.
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--user--subscription.tpl.php
-  * 
-  * - block: shop_activation_form Serves the shop activation and requesting signup code form to user if she had no active shop
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
-  * 
-  * - block: manage_my_shop Serves the user shop information block with total products, categories and orders against the shop and edit link
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
-  * 
-  * - block: profile_settings Serves the form about profile setting view
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
-  * 
-  * - block: my_subscription Serves the block about user subscription status, current tier, benifits in the tier and subscription expiry date
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--user--subscription.tpl.php
-  * 
-  * - block: favorite_items Lists a view to last three favorite product items and link to favorites management page.
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
-  * 
-  * - block: favorite_stores Lists a vew of last three favorite store items and link ot manage favorite store.
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
-  * 
-  * - block: product_store_info Renders the store information on product node
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/node/node--product-display--full.tpl.php
-  * 
-  * - block: my_messages Shows a teaser view of inbox for latest messages and show number of total unread messages. Links to archieved items, inbox and sent messages.
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
-  * 
-  * - block: contact_shop Renders a contact to product owner form on product page.
-  *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/node/node--product-display--full.tpl.php
-  * 
-  * @see https://api.drupal.org/api/drupal/modules%21block%21block.api.php/function/hook_block_view/7 hook_block_view
-  * 
-  * @return array Associated array containing 'subject' and 'content' for block
-  */
-function ti_common_block_view($delta=''){
-	global $user;
-	module_load_include('inc', 'ti_common', 'ti_common');
-	$block = array();
-	switch($delta) {
-		case 'subscription_credits':
-			$designer_roles = _ti_common_get_designer_roles();
-			$designer_tier = array_intersect($user->roles, $designer_roles);
-			$entity = entity_metadata_wrapper('user', $user);
-  		    $credits = commerce_credits_entity_credits($entity, 'trendy_indie_credits');
-			//$billing_info = _ti_common_get_user_address_profile($user->uid);
-			$block['subject'] = t('Subscription &amp; Credits');
-			$block['content'] = array(
-				'#theme' => 'ti_account_subscription_credits',
-				'#subscription_tier' => $designer_tier,
-				'#subscribe_link' => "user/$user->uid/subscription",
-				'#credits' => $credits,
-				);
-			return $block;
-		break;
-		case 'credits':
-			$entity = entity_metadata_wrapper('user', $user);
-	  		$credits = commerce_credits_entity_credits($entity, 'trendy_indie_credits');
-	  		$expiry_date = commerce_credits_entity_expiration_date($entity, 'credit');
-	  		$curr_time = time();
-	  		$days_expiration = 0;
-	  		if ($expiry_date > $curr_time) {
-	  			$days_expiration = ($expiry_date - $curr_time) / 86400;
-	  		}
-				$block['subject'] = t('Credits');
-				$block['content'] = array(
-					'#theme' => 'ti_account_credits',
-					'#days_expiration' => ceil($days_expiration),
-					'#add_credits_link' => "user/$user->uid/subscription",
-					'#credits' => $credits,
-					);
-				return $block;			
-		break;
-		case 'shop_activation_form':
-			$result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
-			if ($result->rowCount() == 0){
-				$block['subject'] = t('Activate Your online Shop');
-				$block['content'] = drupal_get_form('_ti_common_shop_activation_form');
-			}
-			return $block;
-		break;
-		case 'manage_my_shop':
-			$result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
-			$id = $result->fetchAssoc()['id'];
-			if (!empty($id)) {
-				$store = entity_load('commerce_store', array($id));
-				$storew = entity_metadata_wrapper('commerce_store', $id);
-				$field_address = field_view_field('commerce_store', $store[$id], 'field_store_location');
-				$field_address['#label_display'] = 'hidden';
+ *    A callback function to retrieve display name of a user
+ * @param user $user (optional) An intended user to get her name otherwise the current user would be considered.
+ * @api
+ */
+function ti_common_user_name($user = NULL)
+{
+    if (is_null($user)) {
+        global $user;
+    }
+    $account = entity_metadata_wrapper('user', $user->uid);
+    $fname = $lname = '';
+    if (property_exists($account, 'field_first_name'))
+        $fname = $account->field_first_name->value();
+    if (property_exists($account, 'field_last_name'))
 
-				$block['subject'] = t('Manage My Shop');
-				$block['content'] = array(
-					'#theme' => 'ti_account_manage_myshop',
-					'#edit_link' => 'account/myshop/edit',
-					'#shop_name' => $storew->title->value(),
-					'#shop_location' => render($field_address),
-					'#count_products' => _ti_common_product_count($user, array('product')),
-					'#count_categories' => _ti_common_product_categories_count($user, array('product')),
-					'#count_orders' => _ti_common_product_orders_count($user, array('product')),
-					);
-				return $block;
-			}
-		break;
-		case 'profile_settings':
-			$block['subject'] = t('Profile settings');
-			$block['content'] = drupal_get_form('ti_account_profile_settings',$user->uid);
-			return $block;
-		break;
-		case 'my_subscription':
-			$block['subject'] = t('My Subscription');
-			$role_id = _ti_common_get_subscribed_designer_role($user);
-			if (!empty($role_id)) {
-				$subscr = _ti_common_role_subscription_package($role_id);
-				$current_active_listings = _ti_common_user_active_listings($user->uid);
-				$role_expiry = db_select('role_expire', 're')->fields('re', array('expiry_timestamp'))->condition('uid', $user->uid)->condition('rid', $role_id)->execute()->fetchAssoc()['expiry_timestamp'];
-				$role_expiry_days = 0;
-				$curr_time = time();
-				if ($role_expiry > $curr_time) {
-					$role_expiry_days = ceil(($role_expiry - $curr_time) / 86400);
-				}
+        $lname = $account->field_last_name->value();
 
-				module_load_include('inc', 'ti_common', 'ti_common');
-				$raw_designer_roles = _ti_common_get_designer_roles();
-				$role_name = $user->roles[$role_id];
-				$account_cancellation_link = '';
-				if ($raw_designer_roles[0] != $role_name) {
-					$account_cancellation_link = drupal_get_form('ti_account_cancel_subscription_form', 'Cancel Subscription');
-				}
+    if (!empty($fname) && !empty($lname)) {
+        return t('@first_name @last_name', array(
+                '@first_name' => $account->field_first_name->value(),
+                '@last_name' => $account->field_last_name->value())
+        );
+    } else {
+        return $account->name->value();
+    }
+}
 
-				$block['content'] = array(
-					'#theme' => 'ti_account_my_subscription',
-					'#active_listings' => $subscr->field_active_listings->value() - $current_active_listings,
-					'#monthly_sales' => _ti_common_user_month_sale($user->uid)['formated_sale'],
-					'#upgrade_elegibility' => _ti_common_user_upgrade_elegibility($user->uid),
-					'#tier' => user_role_load($role_id)->name,
-					'#account_cancellation_link' => $account_cancellation_link,
-					'#days_expiration' => $role_expiry_days,
-				);
-				
-			} else {
-				$block['content'] = array(
-					'#theme' => 'ti_account_my_subscription',
-					'#active_listings' => "---",
-					'#monthly_sales' => "---",
-					'#upgrade_elegibility' => "---",
-					'#tier' => NULL,
-					'#account_cancellation_link' => NULL,
-					'#days_expiration' => "---",
-				);
-			}
-			return $block;
-		break;
-		case 'favorite_items':
-			$block['subject'] = t('My Favorite Items');
-			
+/**
+ *    A callback to return user name with prepended "Hello, "
+ *
+ * @param user $user (optional) An intended user to get her name otherwise the current user would be considered.
+ */
+function ti_common_account_page_title($user = NULL)
+{
+    return t('Welcome back, @name', array('@name' => ti_common_user_name()));
+}
 
-			$block['content'] = array(
-				'#theme' => 'ti_account_favorite_items',
-				'#total_favorites' => _ti_common_favourite_items($user->uid),
-				'#top_three_favorites' => views_embed_view('favorite_items', 'latest_favorite_items'),
-				'#manage_link' => "user/$user->uid/favorite-items",
-			);
-			return $block;
-		break;
-		case 'favorite_stores':
-			$block['subject'] = t('My Favorite Stores');
-			$fid = db_select('flag', 'f')->fields('f', array('fid'))->condition('name', 'store_favorites')->execute()->fetchAssoc();
-			$fid = $fid['fid'];
-			$query = db_select('flagging', 'f');
-			$query->fields('f', array('flagging_id', 'entity_type', 'entity_id'))
-				->condition('fid', $fid)
-				->condition('uid', $user->uid);
+/**
+ * Implements hook_block_info
+ *
+ * This hook introduces a list of blocks identified by delta values as keys in the array structure.
+ *
+ * @see https://api.drupal.org/api/drupal/modules%21block%21block.api.php/function/hook_block_info/7 hook_block_info
+ */
+function ti_common_block_info()
+{
+    $blocks = array();
 
-			$counts = $query->execute()->rowCount();
+    $blocks['subscription_credits'] = array(
+        'info' => t('Subscription &amp; Credits'),
+    );
 
-			$block['content'] = array(
-				'#theme' => 'ti_account_favorite_stores',
-				'#total_favorites' => $counts,
-				'#top_three_favorites' => views_embed_view('favorite_stores', 'latest_favorite_stores'),
-				'#manage_link' => "user/$user->uid/favorite_stores",
-			);
-			return $block;
-		break;
-		case 'product_store_info':
-			$block['subject'] = t('Product Store Information');
-			$node = menu_get_object();
-			if (property_exists($node, 'type') && $node->type == 'product_display') {
-				$product_id = (int)$node->field_product[LANGUAGE_NONE][0]['product_id'];
-				$product_wrapper = entity_metadata_wrapper('commerce_product', $product_id);
-				$store_id = $product_wrapper->cmp_store->value()->id;
-				$store_wrapper = entity_metadata_wrapper('commerce_store', $store_id);
-				$member = $store_wrapper->cmp_m_store->value();
-				if (is_array($member) && !empty($member)) {
-					$member = array_shift($member);
-				}
+    $blocks['credits'] = array(
+        'info' => t('Credits'),
+    );
 
-				$role_id = _ti_common_get_subscribed_designer_role($member);
-				$subscription = NULL;
-				if (!empty($role_id)) {
-					$subscription = _ti_common_role_subscription_package($role_id);
-				}
-			}
-			$block['content'] = array(
-				'#theme' => 'ti_product_display_store_info',
-				'#store_title' => $store_wrapper->title->value(),
-				'#store_location' => $store_wrapper->field_store_location->value(),
-				'#store_favorite_link' => flag_create_link('store_favorities', $store_id),
-				'#store_owner' => ti_common_user_name($member),
-				'#store_tier_num' => !empty($subscription) ? $subscription->title->value() : '',
-			);
-			return $block;
-		break;
-		case 'my_messages':
-			$block['subject'] = t('My Messages');
-			$block['content'] = array(
-				'#theme' => 'ti_account_my_messages',
-				'#unread_messages' => privatemsg_unread_count(),
-				'#messages' => drupal_get_form('_ti_common_my_messages_latest_form'),
-			);
-			return $block;
-		break;
-		case 'contact_shop':
-			$node = menu_get_object();
-			// if(!empty(menu_get_object())) {
-			// 	$node = menu_get_object();	
-			// } else {
-			// 	$node = menu_get_object('user',1);
-			// }
-			if (!empty($node)){
-				module_load_include('inc', 'privatemsg', 'privatemsg.pages');
-				$block['subject'] = t('Contact the Shop');
-				$block['content'] = drupal_get_form('privatemsg_new', $node);
-				return $block;
-			}
-		break;
-		case 'designers_header_info':
-			$shop_info = _ti_common_get_shop_info(arg(1));
-			if (!empty($shop_info)) {
-				
-				$block['subject'] = t('Manage My Shop');
-				$block['content'] = array(
-					'#theme' => 'ti_designer_shop_header',
-					'#shop_id' => $shop_info['shop_id'],
-					'#shop_name' => $shop_info['shop_name'],
-					'#shop_location' => $shop_info['shop_location'],
-					'#shop_owner' => $shop_info['shop_owner'],
-					'#count_products' => $shop_info['count_products'],
-					'#count_favourites' => $shop_info['count_favourites'],
-					);
-				return $block;
-			}
-		break;
+    $blocks['my_subscription'] = array(
+        'info' => t('My Subscription'),
+    );
 
-		case 'home_featured_designer':
-			global $base_url;
-			$query =  db_select('field_data_user_field_featured_designer', 'fduf');
-			$result = $query->fields('fduf', array('entity_id'))
-				->condition('user_field_featured_designer_value', 1)
-				->execute()
-				->fetchAssoc();
-			$designer_id = $result['entity_id'];
-			$account = user_load($designer_id);
-			$shop_info = _ti_common_get_shop_info($designer_id);
- 			
-			$block['subject'] = t('Featured Designer');
-			
+    $blocks['my_credits'] = array(
+        'info' => t('Credits'),
+    );
 
-			$block['content'] = array(
-				'#theme' => 'ti_home_featured_designer',
-				'#designer_picture' => theme('image_style', array('style_name' => 'profile_picture', 'path' => $account->picture->uri)),
-				'#shop_name' => $shop_info['shop_name'],
-				'#shop_description' => $shop_info['shop_description'],
-				'#shop_link' => $base_url.'/designers/'.$designer_id,
-				'#top_three_products' => views_embed_view('feature_designer_products'),
-			);
-			return $block;
-			case 'artist_of_the_week':
-			
-				$block['subject'] = t('Artist of the week');
-				$result = views_get_view_result('artist_of_the_week')[0];
-				$user_entity = $result->_field_data['users_field_data_cmp_m_store_uid']['entity'];
-				
-				$user_name = ti_common_user_name($user_entity);
-				$designer_roles = _ti_common_get_designer_roles();
-	            $designer_tier = array_intersect($user_entity->roles, $designer_roles);
-				if(!empty($designer_tier)){
-					$key = array_keys($designer_tier)[0];
-				}
+    $blocks['shop_activation_form'] = array(
+        'info' => t('Activate your online shop'),
+    );
 
-				//echo "<pre>"; print_r($key); exit;
+    $blocks['manage_my_shop'] = array(
+        'info' => t('Manage My Shop'),
+    );
 
-				$block['content'] = array(
-					'#theme' => 'ti_artist_of_the_week',
-					'#designer_picture' => theme('image_style', array('style_name' => 'profile_picture', 'path' => $user_entity->picture->uri)),
-					'#user_name' => $user_name,
-					'#user_description' => t('User brief info'),
-					'#shop_name' => $result->eck_commerce_store_title,
-					'#shop_location' => $result->field_field_store_location[0]['rendered'],
-					'#designer_tier' => $designer_tier[$key],
-					'#top_four_products' => views_embed_view('feature_designer_products'),
-				);
-				return $block;
+    $blocks['profile_settings'] = array(
+        'info' => t('Profile Settings'),
+    );
 
-			case 'my_orders':
-				global $user;
-				$purchase_orders = views_embed_view('commerce_backoffice_user_orders', 'order_page', $user->uid);
-				$designer = _ti_common_user_is_desiger($user);
-				if($designer) {
-					$shop_id = _ti_common_get_shop_info($user->uid)['shop_id'];
-					$sale_orders = views_embed_view('commerce_backoffice_user_orders', 'designer_sale', $shop_id);
-				} else {
-					$sale_orders = '';
-				}
-				$block['subject'] = t('My Orders');
-				$block['content'] = array(
-					'#theme' => 'ti_dashboard_my_orders',
-					'#purchase_orders' => $purchase_orders,
-					'#sale_orders' => $sale_orders,
-					);
-				return $block;
-		break;
-	}
+    $blocks['favorite_items'] = array(
+        'info' => t('My Favorite Items'),
+    );
+
+    $blocks['favorite_stores'] = array(
+        'info' => t('My Favorite Stores'),
+    );
+
+    $blocks['product_store_info'] = array(
+        'info' => t('Product Store Info'),
+    );
+
+    $blocks['my_messages'] = array(
+        'info' => t('My Messages'),
+    );
+
+    $blocks['contact_shop'] = array(
+        'info' => t('Contact the Shop'),
+    );
+    $blocks['designers_header_info'] = array(
+        'info' => t('Designer Shop Information'),
+    );
+
+    $blocks['featured_designers_info'] = array(
+        'info' => t('Featured Designer'),
+    );
+    $blocks['designer_products_view'] = array(
+        'info' => t('Designers Products list'),
+    );
+    $blocks['home_featured_designer'] = array(
+        'info' => t('Home Featured Designer'),
+    );
+    $blocks['artist_of_the_week'] = array(
+        'info' => t('Artist of the week'),
+    );
+    $blocks['my_orders'] = array(
+        'info' => t('My Orders'),
+    );
+    return $blocks;
+}
+
+/**
+ * Implements hook_block_view
+ *
+ * The hooks provides the block contents register in hook_block_info.
+ *
+ * @param string $delta Block id defined in hook_block_info
+ *
+ * - block: subscription_credits Provides the current user subscrription status and credits in hand
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
+ *
+ * - block: credits Provides the current user info about credits in hand, expiry date and access to buy more credits.
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--user--subscription.tpl.php
+ *
+ * - block: shop_activation_form Serves the shop activation and requesting signup code form to user if she had no active shop
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
+ *
+ * - block: manage_my_shop Serves the user shop information block with total products, categories and orders against the shop and edit link
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
+ *
+ * - block: profile_settings Serves the form about profile setting view
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
+ *
+ * - block: my_subscription Serves the block about user subscription status, current tier, benifits in the tier and subscription expiry date
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--user--subscription.tpl.php
+ *
+ * - block: favorite_items Lists a view to last three favorite product items and link to favorites management page.
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
+ *
+ * - block: favorite_stores Lists a vew of last three favorite store items and link ot manage favorite store.
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
+ *
+ * - block: product_store_info Renders the store information on product node
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/node/node--product-display--full.tpl.php
+ *
+ * - block: my_messages Shows a teaser view of inbox for latest messages and show number of total unread messages. Links to archieved items, inbox and sent messages.
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/page/page--account.tpl.php
+ *
+ * - block: contact_shop Renders a contact to product owner form on product page.
+ *   rendered-in: /sites/all/themes/trendyindie_kickstart_theme/templates/node/node--product-display--full.tpl.php
+ *
+ * @see https://api.drupal.org/api/drupal/modules%21block%21block.api.php/function/hook_block_view/7 hook_block_view
+ *
+ * @return array Associated array containing 'subject' and 'content' for block
+ */
+function ti_common_block_view($delta = '')
+{
+    global $user;
+    module_load_include('inc', 'ti_common', 'ti_common');
+    $block = array();
+    switch ($delta) {
+        case 'subscription_credits':
+            $designer_roles = _ti_common_get_designer_roles();
+            $designer_tier = array_intersect($user->roles, $designer_roles);
+            $entity = entity_metadata_wrapper('user', $user);
+            $credits = commerce_credits_entity_credits($entity, 'trendy_indie_credits');
+            //$billing_info = _ti_common_get_user_address_profile($user->uid);
+            $block['subject'] = t('Subscription &amp; Credits');
+            $block['content'] = array(
+                '#theme' => 'ti_account_subscription_credits',
+                '#subscription_tier' => $designer_tier,
+                '#subscribe_link' => "user/$user->uid/subscription",
+                '#credits' => $credits,
+            );
+            return $block;
+            break;
+        case 'credits':
+            $entity = entity_metadata_wrapper('user', $user);
+            $credits = commerce_credits_entity_credits($entity, 'trendy_indie_credits');
+            $expiry_date = commerce_credits_entity_expiration_date($entity, 'credit');
+            $curr_time = time();
+            $days_expiration = 0;
+            if ($expiry_date > $curr_time) {
+                $days_expiration = ($expiry_date - $curr_time) / 86400;
+            }
+            $block['subject'] = t('Credits');
+            $block['content'] = array(
+                '#theme' => 'ti_account_credits',
+                '#days_expiration' => ceil($days_expiration),
+                '#add_credits_link' => "user/$user->uid/subscription",
+                '#credits' => $credits,
+            );
+            return $block;
+            break;
+        case 'shop_activation_form':
+            $result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
+            if ($result->rowCount() == 0) {
+                $block['subject'] = t('Activate Your online Shop');
+                $block['content'] = drupal_get_form('_ti_common_shop_activation_form');
+            }
+            return $block;
+            break;
+        case 'manage_my_shop':
+            $result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
+            $id = $result->fetchAssoc()['id'];
+            if (!empty($id)) {
+                $store = entity_load('commerce_store', array($id));
+                $storew = entity_metadata_wrapper('commerce_store', $id);
+                $field_address = field_view_field('commerce_store', $store[$id], 'field_store_location');
+                $field_address['#label_display'] = 'hidden';
+
+                $block['subject'] = t('Manage My Shop');
+                $block['content'] = array(
+                    '#theme' => 'ti_account_manage_myshop',
+                    '#edit_link' => 'account/myshop/edit',
+                    '#shop_name' => $storew->title->value(),
+                    '#shop_location' => render($field_address),
+                    '#count_products' => _ti_common_product_count($user, array('product')),
+                    '#count_categories' => _ti_common_product_categories_count($user, array('product')),
+                    '#count_orders' => _ti_common_product_orders_count($user, array('product')),
+                );
+                return $block;
+            }
+            break;
+        case 'profile_settings':
+            $block['subject'] = t('Profile settings');
+            $block['content'] = drupal_get_form('ti_account_profile_settings', $user->uid);
+            return $block;
+            break;
+        case 'my_subscription':
+            $block['subject'] = t('My Subscription');
+            $role_id = _ti_common_get_subscribed_designer_role($user);
+            if (!empty($role_id)) {
+                $subscr = _ti_common_role_subscription_package($role_id);
+                $current_active_listings = _ti_common_user_active_listings($user->uid);
+                $role_expiry = db_select('role_expire', 're')->fields('re', array('expiry_timestamp'))->condition('uid', $user->uid)->condition('rid', $role_id)->execute()->fetchAssoc()['expiry_timestamp'];
+                $role_expiry_days = 0;
+                $curr_time = time();
+                if ($role_expiry > $curr_time) {
+                    $role_expiry_days = ceil(($role_expiry - $curr_time) / 86400);
+                }
+
+                module_load_include('inc', 'ti_common', 'ti_common');
+                $raw_designer_roles = _ti_common_get_designer_roles();
+                $role_name = $user->roles[$role_id];
+                $account_cancellation_link = '';
+                if ($raw_designer_roles[0] != $role_name) {
+                    $account_cancellation_link = drupal_get_form('ti_account_cancel_subscription_form', 'Cancel Subscription');
+                }
+
+                $block['content'] = array(
+                    '#theme' => 'ti_account_my_subscription',
+                    '#active_listings' => $subscr->field_active_listings->value() - $current_active_listings,
+                    '#monthly_sales' => _ti_common_user_month_sale($user->uid)['formated_sale'],
+                    '#upgrade_elegibility' => _ti_common_user_upgrade_elegibility($user->uid),
+                    '#tier' => user_role_load($role_id)->name,
+                    '#account_cancellation_link' => $account_cancellation_link,
+                    '#days_expiration' => $role_expiry_days,
+                );
+
+            } else {
+                $block['content'] = array(
+                    '#theme' => 'ti_account_my_subscription',
+                    '#active_listings' => "---",
+                    '#monthly_sales' => "---",
+                    '#upgrade_elegibility' => "---",
+                    '#tier' => NULL,
+                    '#account_cancellation_link' => NULL,
+                    '#days_expiration' => "---",
+                );
+            }
+            return $block;
+            break;
+        case 'favorite_items':
+            $block['subject'] = t('My Favorite Items');
+
+
+            $block['content'] = array(
+                '#theme' => 'ti_account_favorite_items',
+                '#total_favorites' => _ti_common_favourite_items($user->uid),
+                '#top_three_favorites' => views_embed_view('favorite_items', 'latest_favorite_items'),
+                '#manage_link' => "user/$user->uid/favorite-items",
+            );
+            return $block;
+            break;
+        case 'favorite_stores':
+            $block['subject'] = t('My Favorite Stores');
+            $fid = db_select('flag', 'f')->fields('f', array('fid'))->condition('name', 'store_favorites')->execute()->fetchAssoc();
+            $fid = $fid['fid'];
+            $query = db_select('flagging', 'f');
+            $query->fields('f', array('flagging_id', 'entity_type', 'entity_id'))
+                ->condition('fid', $fid)
+                ->condition('uid', $user->uid);
+
+            $counts = $query->execute()->rowCount();
+
+            $block['content'] = array(
+                '#theme' => 'ti_account_favorite_stores',
+                '#total_favorites' => $counts,
+                '#top_three_favorites' => views_embed_view('favorite_stores', 'latest_favorite_stores'),
+                '#manage_link' => "user/$user->uid/favorite_stores",
+            );
+            return $block;
+            break;
+        case 'product_store_info':
+            $block['subject'] = t('Product Store Information');
+            $node = menu_get_object();
+            if (property_exists($node, 'type') && $node->type == 'product_display') {
+                $product_id = (int)$node->field_product[LANGUAGE_NONE][0]['product_id'];
+                $product_wrapper = entity_metadata_wrapper('commerce_product', $product_id);
+                $store_id = $product_wrapper->cmp_store->value()->id;
+                $store_wrapper = entity_metadata_wrapper('commerce_store', $store_id);
+                $member = $store_wrapper->cmp_m_store->value();
+                if (is_array($member) && !empty($member)) {
+                    $member = array_shift($member);
+                }
+
+                $role_id = _ti_common_get_subscribed_designer_role($member);
+                $subscription = NULL;
+                if (!empty($role_id)) {
+                    $subscription = _ti_common_role_subscription_package($role_id);
+                }
+            }
+            $block['content'] = array(
+                '#theme' => 'ti_product_display_store_info',
+                '#store_title' => $store_wrapper->title->value(),
+                '#store_location' => $store_wrapper->field_store_location->value(),
+                '#store_favorite_link' => flag_create_link('store_favorities', $store_id),
+                '#store_owner' => ti_common_user_name($member),
+                '#store_tier_num' => !empty($subscription) ? $subscription->title->value() : '',
+            );
+            return $block;
+            break;
+        case 'my_messages':
+            $block['subject'] = t('My Messages');
+            $block['content'] = array(
+                '#theme' => 'ti_account_my_messages',
+                '#unread_messages' => privatemsg_unread_count(),
+                '#messages' => drupal_get_form('_ti_common_my_messages_latest_form'),
+            );
+            return $block;
+            break;
+        case 'contact_shop':
+            $node = menu_get_object();
+            // if(!empty(menu_get_object())) {
+            // 	$node = menu_get_object();
+            // } else {
+            // 	$node = menu_get_object('user',1);
+            // }
+            if (!empty($node)) {
+                module_load_include('inc', 'privatemsg', 'privatemsg.pages');
+                $block['subject'] = t('Contact the Shop');
+                $block['content'] = drupal_get_form('privatemsg_new', $node);
+                return $block;
+            }
+            break;
+        case 'designers_header_info':
+            $shop_info = _ti_common_get_shop_info(arg(1));
+            if (!empty($shop_info)) {
+
+                $block['subject'] = t('Manage My Shop');
+                $block['content'] = array(
+                    '#theme' => 'ti_designer_shop_header',
+                    '#shop_id' => $shop_info['shop_id'],
+                    '#shop_name' => $shop_info['shop_name'],
+                    '#shop_location' => $shop_info['shop_location'],
+                    '#shop_owner' => $shop_info['shop_owner'],
+                    '#count_products' => $shop_info['count_products'],
+                    '#count_favourites' => $shop_info['count_favourites'],
+                );
+                return $block;
+            }
+            break;
+
+        case 'home_featured_designer':
+            global $base_url;
+            $query = db_select('field_data_user_field_featured_designer', 'fduf');
+            $result = $query->fields('fduf', array('entity_id'))
+                ->condition('user_field_featured_designer_value', 1)
+                ->execute()
+                ->fetchAssoc();
+            $designer_id = $result['entity_id'];
+            $account = user_load($designer_id);
+            $shop_info = _ti_common_get_shop_info($designer_id);
+
+            $block['subject'] = t('Featured Designer');
+
+
+            $block['content'] = array(
+                '#theme' => 'ti_home_featured_designer',
+                '#designer_picture' => theme('image_style', array('style_name' => 'profile_picture', 'path' => $account->picture->uri)),
+                '#shop_name' => $shop_info['shop_name'],
+                '#shop_description' => $shop_info['shop_description'],
+                '#shop_link' => $base_url . '/designers/' . $designer_id,
+                '#top_three_products' => views_embed_view('feature_designer_products'),
+            );
+            return $block;
+        case 'artist_of_the_week':
+
+            $block['subject'] = t('Artist of the week');
+            $result = views_get_view_result('artist_of_the_week')[0];
+            $user_entity = $result->_field_data['users_field_data_cmp_m_store_uid']['entity'];
+
+            $user_name = ti_common_user_name($user_entity);
+            $designer_roles = _ti_common_get_designer_roles();
+            $designer_tier = array_intersect($user_entity->roles, $designer_roles);
+            if (!empty($designer_tier)) {
+                $key = array_keys($designer_tier)[0];
+            }
+
+            //echo "<pre>"; print_r($key); exit;
+
+            $block['content'] = array(
+                '#theme' => 'ti_artist_of_the_week',
+                '#designer_picture' => theme('image_style', array('style_name' => 'profile_picture', 'path' => $user_entity->picture->uri)),
+                '#user_name' => $user_name,
+                '#user_description' => t('User brief info'),
+                '#shop_name' => $result->eck_commerce_store_title,
+                '#shop_location' => $result->field_field_store_location[0]['rendered'],
+                '#designer_tier' => $designer_tier[$key],
+                '#top_four_products' => views_embed_view('feature_designer_products'),
+            );
+            return $block;
+
+        case 'my_orders':
+            global $user;
+            $purchase_orders = views_embed_view('commerce_backoffice_user_orders', 'order_page', $user->uid);
+            $designer = _ti_common_user_is_desiger($user);
+            if ($designer) {
+                $shop_id = _ti_common_get_shop_info($user->uid)['shop_id'];
+                $sale_orders = views_embed_view('commerce_backoffice_user_orders', 'designer_sale', $shop_id);
+            } else {
+                $sale_orders = '';
+            }
+            $block['subject'] = t('My Orders');
+            $block['content'] = array(
+                '#theme' => 'ti_dashboard_my_orders',
+                '#purchase_orders' => $purchase_orders,
+                '#sale_orders' => $sale_orders,
+            );
+            return $block;
+            break;
+    }
 }
 
 
 /**
  * Implements hook_form_FORM_ID_alter
- * 
+ *
  * @param array $form Form array
  * @param array $form_state Current form state
  * @param string $form_id Form id
  */
-function ti_common_form_privatemsg_new_alter(&$form, $form_state, $form_id) {
-	$node = menu_get_object();
-	if ($node && $node->type == 'product_display'){
-		$account = user_load($node->uid);
-		$form['recipient']['#type'] = 'hidden';
-		$form['recipient']['#default_value'] = $account->name;
-		$form['subject']['#default_value'] = t('Query about @product', array('@product' => $node->title));
-		$form['subject']['#attributes'] = array('placeholder' => $form['subject']['#title']);
-		unset($form['subject']['#title']);
-		$form['body']['#attributes'] = array('placeholder' => $form['body']['#title']);
-		unset($form['body']['#title']);
-		$form['actions']['submit']['#attributes'] = array('class' => array('button tiny'));
-	 } //else {
-	// 	$account = menu_get_object('user',1);
-	// 	$store_info = _ti_common_get_shop_info($account->uid);
-	// 	$form['recipient']['#type'] = 'hidden';
-	// 	$form['recipient']['#default_value'] = $account->name;
-	// 	$form['subject']['#default_value'] = t('Query about @store', array('@store' => $store_info['shop_name']));
-	// 	$form['subject']['#attributes'] = array('placeholder' => $form['subject']['#title']);
-	// 	unset($form['subject']['#title']);
-	// 	$form['body']['#attributes'] = array('placeholder' => $form['body']['#title']);
-	// 	unset($form['body']['#title']);
-	// 	$form['actions']['submit']['#attributes'] = array('class' => array('button tiny'));
-
-	// }
+function ti_common_form_privatemsg_new_alter(&$form, $form_state, $form_id)
+{
+    $node = menu_get_object();
+    if ($node && $node->type == 'product_display') {
+        $account = user_load($node->uid);
+        $form['recipient']['#type'] = 'hidden';
+        $form['recipient']['#default_value'] = $account->name;
+        $form['subject']['#default_value'] = t('Query about @product', array('@product' => $node->title));
+        $form['subject']['#attributes'] = array('placeholder' => $form['subject']['#title']);
+        unset($form['subject']['#title']);
+        $form['body']['#attributes'] = array('placeholder' => $form['body']['#title']);
+        unset($form['body']['#title']);
+        $form['actions']['submit']['#attributes'] = array('class' => array('button tiny'));
+    }
 }
 
 /**
  * Form definition function to list down messages
- * 
+ *
  * @return array Form definition array
  */
-function _ti_common_my_messages_latest_form() {
-	$form = array();
-	$thread_ids = array();
-	global $user;
-	$query = _privatemsg_assemble_query('list', $user, 'inbox');
-	module_load_include('inc', 'privatemsg', 'privatemsg.theme');
-	foreach($query->limit(5)->execute() as $row) {
-		$thread_ids[$row->thread_id] = !empty($row->is_new) ? 'msg-unread' : 'msg-read';
-		$from = theme('privatemsg_list_field__participants', array('thread' => (array)$row));
-		$form['from'][$row->thread_id] = array('#markup' => $from['data']);
-		$form['subject'][$row->thread_id] = array('#markup' => $row->subject);
-		$form['trash'][$row->thread_id] = array(
-			'#type' => 'submit', 
-			'#value' => $row->thread_id,
-			'#thread_id' => $row->thread_id,
-			'#from' => $row->participants,
-			'#theme_wrappers' => array('ti_foundation_icon_button'),
-			'#tree' => TRUE,
-		);
-	}
+function _ti_common_my_messages_latest_form()
+{
+    $form = array();
+    $thread_ids = array();
+    global $user;
+    $query = _privatemsg_assemble_query('list', $user, 'inbox');
+    module_load_include('inc', 'privatemsg', 'privatemsg.theme');
+    foreach ($query->limit(5)->execute() as $row) {
+        $thread_ids[$row->thread_id] = !empty($row->is_new) ? 'msg-unread' : 'msg-read';
+        $from = theme('privatemsg_list_field__participants', array('thread' => (array)$row));
+        $form['from'][$row->thread_id] = array('#markup' => $from['data']);
+        $form['subject'][$row->thread_id] = array('#markup' => $row->subject);
+        $form['trash'][$row->thread_id] = array(
+            '#type' => 'submit',
+            '#value' => $row->thread_id,
+            '#thread_id' => $row->thread_id,
+            '#from' => $row->participants,
+            '#theme_wrappers' => array('ti_foundation_icon_button'),
+            '#tree' => TRUE,
+        );
+    }
 
-	$form['thread_ids'] = array(
-		'#type' => 'checkboxes',
-		'#options' => $thread_ids,
-		'#access' => FALSE,
-	);
+    $form['thread_ids'] = array(
+        '#type' => 'checkboxes',
+        '#options' => $thread_ids,
+        '#access' => FALSE,
+    );
 
-	$form['#theme'] = 'ti_account_my_messages_tabular_form';
+    $form['#theme'] = 'ti_account_my_messages_tabular_form';
 
-	return $form;
+    return $form;
 }
 
 /**
  * Form submit handler for the form '_ti_common_my_messages_latest_form'
- * 
+ *
  * @param array $form Form definition array
  * @param array $form_state Form state array
  */
-function _ti_common_my_messages_latest_form_submit($form, $form_state) {
-	global $user;
-	$values = $form_state['values'];
-	$thread_id = $form_state['triggering_element']['#thread_id'];
-	$thread = privatemsg_thread_load($thread_id);
-	$from = _privatemsg_generate_user_array($form_state['triggering_element']['#from'], -1);
-	$account = array_shift($from);
+function _ti_common_my_messages_latest_form_submit($form, $form_state)
+{
+    global $user;
+    $values = $form_state['values'];
+    $thread_id = $form_state['triggering_element']['#thread_id'];
+    $thread = privatemsg_thread_load($thread_id);
+    $from = _privatemsg_generate_user_array($form_state['triggering_element']['#from'], -1);
+    $account = array_shift($from);
 
-	drupal_set_confirmation(t('Do you want to delete the message thread?'), array(
-		'yes' => array(
-			'callback' => '_ti_common_confirmation_dialog_delete_privatemsg_thread',
-			'title' => t('Delete'),
-			'attributes' => array('class' => array('button', 'tiny', 'alert')),
-		),
-	), array(
-		'title' => t('No'),
-		'path' => current_path(),
-	),'warning' , t('Subject %subject sent by !author', array('%subject' => $thread['subject'], '!author' => privatemsg_recipient_format($account))),
-		array(
-			'thread_id' => $thread_id,
-		)
-	);
+    drupal_set_confirmation(t('Do you want to delete the message thread?'), array(
+        'yes' => array(
+            'callback' => '_ti_common_confirmation_dialog_delete_privatemsg_thread',
+            'title' => t('Delete'),
+            'attributes' => array('class' => array('button', 'tiny', 'alert')),
+        ),
+    ), array(
+        'title' => t('No'),
+        'path' => current_path(),
+    ), 'warning', t('Subject %subject sent by !author', array('%subject' => $thread['subject'], '!author' => privatemsg_recipient_format($account))),
+        array(
+            'thread_id' => $thread_id,
+        )
+    );
 }
 
 /**
  * Form definition function for profile settings
- * 
+ *
  * @param array $form Form definition array
  * @param array $form_state Form state array
  * @param int $uid User id
- * 
+ *
  * @return array Form definition array
  */
-function ti_account_profile_settings($form, $form_state, $uid) {
-	$account = entity_metadata_wrapper('user', $uid);
+function ti_account_profile_settings($form, $form_state, $uid)
+{
+    $account = entity_metadata_wrapper('user', $uid);
 
-	$form['public_profile'] = array(
-		'#type' => 'radios',
-		'#title' => t('Public Profile'),
-		'#options' => array(t('Off'), t('On')),
-		'#default_value' => $account->field_enable_public_profile->value(),
-		//'#theme' => 'ti_common_zfswitch',
-		'#theme_wrappers' => array('ti_common_zfswitch'),
-	);
+    $form['public_profile'] = array(
+        '#type' => 'radios',
+        '#title' => t('Public Profile'),
+        '#options' => array(t('Off'), t('On')),
+        '#default_value' => $account->field_enable_public_profile->value(),
+        //'#theme' => 'ti_common_zfswitch',
+        '#theme_wrappers' => array('ti_common_zfswitch'),
+    );
 
-	$form['auto_share'] = array(
-		'#type' => 'radios',
-		'#title' => t('Auto Share'),
-		'#options' => array(t('Off'), t('On')),
-		'#default_value' => $account->field_enable_auto_share->value(),
-		//'#theme' => 'ti_common_zfswitch',
-		'#theme_wrappers' => array('ti_common_zfswitch'),
-	);
+    $form['auto_share'] = array(
+        '#type' => 'radios',
+        '#title' => t('Auto Share'),
+        '#options' => array(t('Off'), t('On')),
+        '#default_value' => $account->field_enable_auto_share->value(),
+        //'#theme' => 'ti_common_zfswitch',
+        '#theme_wrappers' => array('ti_common_zfswitch'),
+    );
 
-	return $form;
+    return $form;
 }
 
 
 /**
  * Utility function to calculate the total number of products of a user of specific type
- * 
+ *
  * @param stdClass $user Drupal user object
  * @param array $types list of bundle name of commerce_product entity
- * 
+ *
  * @return int Total number of products
  */
-function _ti_common_product_count(stdClass $user, array $types) {	
-	$q = db_select('commerce_product', 'cp')->fields('cp', array('product_id'));
-	foreach($types as $type) {
-		$q->condition('type', $type);
-	}
-	$r = $q->condition('uid', $user->uid)->execute();
-	return $r->rowCount();
+function _ti_common_product_count(stdClass $user, array $types)
+{
+    $q = db_select('commerce_product', 'cp')->fields('cp', array('product_id'));
+    foreach ($types as $type) {
+        $q->condition('type', $type);
+    }
+    $r = $q->condition('uid', $user->uid)->execute();
+    return $r->rowCount();
 }
 
 /**
  * Utility function to calculate applied category tags on a user's products
- * 
+ *
  * @param stdClass $user Drupal user object
  * @param array $types List of bundle name of commerce_product entity
- * 
+ *
  * @return int Total number of term counts related to a user's products.
  */
-function _ti_common_product_categories_count(stdClass $user, array $types) {
-	$categories = array();
-	$query = new EntityFieldQuery();
-	$query->entityCondition('entity_type', 'node')
-		->entityCondition('bundle', 'product_display')
-		->propertyCondition('status', 1)
-		->propertyCondition('uid', $user->uid);
-	$result = $query->execute();
-	if (!empty($result['product'])){
-		$nids = array_keys($result['product']);
-		foreach($nids as $nid) {
-			$node = entity_metadata_wrapper('product', $nid);
-			$tid = $node->field_product_category->value()->tid;
-			$categories[$tid] = $tid;
-		}
-	}
+function _ti_common_product_categories_count(stdClass $user, array $types)
+{
+    $categories = array();
+    $query = new EntityFieldQuery();
+    $query->entityCondition('entity_type', 'node')
+        ->entityCondition('bundle', 'product_display')
+        ->propertyCondition('status', 1)
+        ->propertyCondition('uid', $user->uid);
+    $result = $query->execute();
+    if (!empty($result['product'])) {
+        $nids = array_keys($result['product']);
+        foreach ($nids as $nid) {
+            $node = entity_metadata_wrapper('product', $nid);
+            $tid = $node->field_product_category->value()->tid;
+            $categories[$tid] = $tid;
+        }
+    }
 
-	return count($categories);
+    return count($categories);
 }
 
 /**
  * Utility  function to calculate total number of orders for a user.
- * 
+ *
  * @param stdClass $user Drupal user object
  * @param array $types List of bundle name of commerce_product entity
- * 
+ *
  * @return int Returns total number of orders for a user against some types of products
  */
-function _ti_common_product_orders_count(stdClass $user, array $types) {
-	$q = db_query("SELECT co.order_id, cli.line_item_label, cp.sku FROM {commerce_order} co INNER JOIN {commerce_line_item} cli ON co.order_id = cli.order_id INNER JOIN {commerce_product} cp ON cp.sku = cli.line_item_label WHERE cp.uid=11 AND co.status IN ('pending') AND cp.status=1 AND cp.type='product AND cp.uid=:uid';", array(':uid' => $user->uid));
-	return $q->rowCount();
+function _ti_common_product_orders_count(stdClass $user, array $types)
+{
+    $q = db_query("SELECT co.order_id, cli.line_item_label, cp.sku FROM {commerce_order} co INNER JOIN {commerce_line_item} cli ON co.order_id = cli.order_id INNER JOIN {commerce_product} cp ON cp.sku = cli.line_item_label WHERE cp.uid=11 AND co.status IN ('pending') AND cp.status=1 AND cp.type='product AND cp.uid=:uid';", array(':uid' => $user->uid));
+    return $q->rowCount();
 }
 
 /**
  * Form definition function to render subscription cancellation button
- * 
+ *
  * @param array $form form definition array
  * @param array $form_state
  * @param string $lable A title for account cancellation button
- * 
+ *
  * @return array Form definition array
  */
-function ti_account_cancel_subscription_form($form = array(), $form_state, $label){
-	$form['action'] = array(
-		'#type' => 'submit',
-		'#value' => $label,
-		'#attributes' => array('class' => array('button', 'tiny', 'right')),
-	);
+function ti_account_cancel_subscription_form($form = array(), $form_state, $label)
+{
+    $form['action'] = array(
+        '#type' => 'submit',
+        '#value' => $label,
+        '#attributes' => array('class' => array('button', 'tiny', 'right')),
+    );
 
-	$form['#attributes'] = array('class' => array('right', 'columns', ''));
+    $form['#attributes'] = array('class' => array('right', 'columns', ''));
 
-	return $form;
+    return $form;
 }
 
 /**
  * Form submit handler for 'ti_account_cancel_subscription_form'
- * 
+ *
  * @param array $form form definition array
  * @param array $form_state
  */
-function ti_account_cancel_subscription_form_submit($form, $form_state) {
-	drupal_set_confirmation(t('Do you really want to cancel your subscription?'), array(
-			'yes' => array(
-				'callback' => '_ti_common_confirmation_dialog_cancel_subscription',
-				'title' => t('Unsubscribe'),
-				'attributes' => array('class' => array('button', 'tiny', 'alert')),
-			),
-		), array(
-			'title' => t('No'),
-			'path' => current_path(),
-		), 'warning' , 'This will remove your premium role and make you a Starving Artist.');
+function ti_account_cancel_subscription_form_submit($form, $form_state)
+{
+    drupal_set_confirmation(t('Do you really want to cancel your subscription?'), array(
+        'yes' => array(
+            'callback' => '_ti_common_confirmation_dialog_cancel_subscription',
+            'title' => t('Unsubscribe'),
+            'attributes' => array('class' => array('button', 'tiny', 'alert')),
+        ),
+    ), array(
+        'title' => t('No'),
+        'path' => current_path(),
+    ), 'warning', 'This will remove your premium role and make you a Starving Artist.');
 }
 
 /**
  * Form definition function for activating and requesting signup code
- * 
+ *
  * @return array Form definition array
  */
-function _ti_common_shop_activation_form(){
-	$form = array();
+function _ti_common_shop_activation_form()
+{
+    $form = array();
 
-	$form['signup_code'] = array(
-		'#title' => t('Enter Signup Code'),
-		'#type' => 'textfield',
-	);
-	$form['submit_signup'] = array(
-		'#type' => 'submit',
-		'#value' => '&#xf196;',
-		'#theme_wrappers' => array('ti_foundation_icon_button'),
-	);
-	$form['submit_request_code'] = array(
-		'#type' => 'submit',
-		'#value' => t('Request an Invite'),
-		'#attributes' => array('class' => array('button', 'tiny')),
-	);
+    $form['signup_code'] = array(
+        '#title' => t('Enter Signup Code'),
+        '#type' => 'textfield',
+    );
+    $form['submit_signup'] = array(
+        '#type' => 'submit',
+        '#value' => '&#xf196;',
+        '#theme_wrappers' => array('ti_foundation_icon_button'),
+    );
+    $form['submit_request_code'] = array(
+        '#type' => 'submit',
+        '#value' => t('Request an Invite'),
+        '#attributes' => array('class' => array('button', 'tiny')),
+    );
 
-	$form['#theme'] = 'ti_account_activation_form';
-	return $form;
+    $form['#theme'] = 'ti_account_activation_form';
+    return $form;
 }
 
 /**
  * Form submit hanlder for the form '_ti_common_shop_activation_form'
- * 
+ *
  * @param array $form form definition array
  * @param array $form_state
  */
-function _ti_common_shop_activation_form_submit($form, $form_state){
-	$values = $form_state['values'];
-	$clicked_button = $form_state['clicked_button']['#value'];
-	global $user;
-	if ($values['submit_request_code'] == $clicked_button) {
-		rules_invoke_event('ti_common_requested_invitation', $user);
-	} else if ($values['submit_signup'] == $clicked_button) {
+function _ti_common_shop_activation_form_submit($form, $form_state)
+{
+    $values = $form_state['values'];
+    $clicked_button = $form_state['clicked_button']['#value'];
+    global $user;
+    if ($values['submit_request_code'] == $clicked_button) {
+        rules_invoke_event('ti_common_requested_invitation', $user);
+    } else if ($values['submit_signup'] == $clicked_button) {
 
-		$query = db_query("select rid from {regcode} where code=:code and uid=:uid and is_active=1 and expires>:time and uses<maxuses;", array(':code' => trim($values['signup_code']), ':uid' => $user->uid, ':time' => time()));
-			
-		$record = $query->fetchAssoc();
+        $query = db_query("select rid from {regcode} where code=:code and uid=:uid and is_active=1 and expires>:time and uses<maxuses;", array(':code' => trim($values['signup_code']), ':uid' => $user->uid, ':time' => time()));
 
-		if (isset($record['rid'])) {
-			$code = regcode_use($values['signup_code'], $user->uid);
-			rules_invoke_event('ti_common_entered_signupcode', $user);
-		} else {
-			drupal_set_message('Invalid or expired signup code entered. Please generate a new signup code.', 'error');
-		}
-	}
+        $record = $query->fetchAssoc();
+
+        if (isset($record['rid'])) {
+            $code = regcode_use($values['signup_code'], $user->uid);
+            rules_invoke_event('ti_common_entered_signupcode', $user);
+        } else {
+            drupal_set_message('Invalid or expired signup code entered. Please generate a new signup code.', 'error');
+        }
+    }
 }
 
 /**
  * Implements hook_rules_event_info
- * 
+ *
  * @see http://drupalcontrib.org/api/drupal/contributions!rules!rules.api.php/function/hook_rules_event_info/7 hook_rules_event_info
  * @return array An array of information about the module's provided rules events.
  */
-function ti_common_rules_event_info(){
-	$events = array();
+function ti_common_rules_event_info()
+{
+    $events = array();
 
-	$events['ti_common_requested_invitation'] = array(
-		'label' => t('Shop invitation code requested'),
-		'group' => t('TrendyIndie Shop'),
-		'variables' => array(
-			'user' => array(
-				'label' => t('Designer'),
-				'type' => 'user',
-				'description' => t('The designer user who requests for invitation for activating the shop.'),
-			),
-		),
-	);
+    $events['ti_common_requested_invitation'] = array(
+        'label' => t('Shop invitation code requested'),
+        'group' => t('TrendyIndie Shop'),
+        'variables' => array(
+            'user' => array(
+                'label' => t('Designer'),
+                'type' => 'user',
+                'description' => t('The designer user who requests for invitation for activating the shop.'),
+            ),
+        ),
+    );
 
-	$events['ti_common_entered_signupcode'] = array(
-		'label' => t('Signup Code Entered'),
-		'group' => t('TrendyIndie Shop'),
-		'variables' => array(
-			'user' => array(
-				'label' => t('Designer'),
-				'type' => 'user',
-				'description' => t('The designer user who requests for invitation for activating the shop.'),
-			),
-		),
-	);
+    $events['ti_common_entered_signupcode'] = array(
+        'label' => t('Signup Code Entered'),
+        'group' => t('TrendyIndie Shop'),
+        'variables' => array(
+            'user' => array(
+                'label' => t('Designer'),
+                'type' => 'user',
+                'description' => t('The designer user who requests for invitation for activating the shop.'),
+            ),
+        ),
+    );
 
-	$events['ti_common_unsubscribe_designer'] = array(
-		'label' => t('Designer Cancelling Subscription'),
-		'group' => t('TrendyIndie Subscription'),
-		'variables' => array(
-			'user' => array(
-				'label' => t('Designer'),
-				'type' => 'user',
-				'description' => t('The designer user who requests cancellation of his/her subscription.'),
-			),
-		),
-	);
+    $events['ti_common_unsubscribe_designer'] = array(
+        'label' => t('Designer Cancelling Subscription'),
+        'group' => t('TrendyIndie Subscription'),
+        'variables' => array(
+            'user' => array(
+                'label' => t('Designer'),
+                'type' => 'user',
+                'description' => t('The designer user who requests cancellation of his/her subscription.'),
+            ),
+        ),
+    );
 
-	return $events;
+    return $events;
 
 }
 
 /**
  * Implements hook_rules_action_info
- * 
+ *
  * @see http://drupalcontrib.org/api/drupal/contributions%21rules%21rules.api.php/function/hook_rules_action_info/7 hook_rules_action_info
  * @return array An array of information about the module's provided rules actions.
  */
-function ti_common_rules_action_info(){
-	$actions = array();
+function ti_common_rules_action_info()
+{
+    $actions = array();
 
-	$actions['ti_common_process_shop_invitation'] = array(
-		'label' => t('Send shop invitation'),
-		'group' => t('TrendyIndie Shop'),
-		'parameter' => array(
-			'designer' => array(
-				'type' => 'user',
-				'label' => t('Designer'),
-				'description' => t('The subscriber who want to open a shop'),
-			),
-		),
-		'base' => '_ti_common_rules_action_send_shop_invitation',
-		'access callback' => 'rules_user_integration_access',
-	);
+    $actions['ti_common_process_shop_invitation'] = array(
+        'label' => t('Send shop invitation'),
+        'group' => t('TrendyIndie Shop'),
+        'parameter' => array(
+            'designer' => array(
+                'type' => 'user',
+                'label' => t('Designer'),
+                'description' => t('The subscriber who want to open a shop'),
+            ),
+        ),
+        'base' => '_ti_common_rules_action_send_shop_invitation',
+        'access callback' => 'rules_user_integration_access',
+    );
 
-	$actions['ti_common_activate_shop'] = array(
-		'label' => t('Activate Shop'),
-		'group' => t('TrendyIndie Shop'),
-		'parameter' => array(
-			'designer' => array(
-				'type' => 'user',
-				'label' => t('Owner'),
-				'description' => t('The subscriber who will own the shop.'),
-			),
-		),
-		'base' => '_ti_common_rules_action_activate_shop',
-		'access callback' => 'rules_user_integration_access',
-	);
+    $actions['ti_common_activate_shop'] = array(
+        'label' => t('Activate Shop'),
+        'group' => t('TrendyIndie Shop'),
+        'parameter' => array(
+            'designer' => array(
+                'type' => 'user',
+                'label' => t('Owner'),
+                'description' => t('The subscriber who will own the shop.'),
+            ),
+        ),
+        'base' => '_ti_common_rules_action_activate_shop',
+        'access callback' => 'rules_user_integration_access',
+    );
 
-	$actions['ti_common_cancel_designer_subscription'] = array(
-		'label' => t('Cancell Designer Subscription'),
-		'group' => t('TrendyIndie Subscription'),
-		'parameter' => array(
-			'designer' => array(
-				'type' => 'user',
-				'label' => t('Designer'),
-				'description' => t('The subscriber who want to cancel his/her subscription'),
-			),
-		),
-		'base' => '_ti_common_rules_action_cancel_subscription',
-		'access callback' => 'rules_user_integration_access',
-	);
+    $actions['ti_common_cancel_designer_subscription'] = array(
+        'label' => t('Cancell Designer Subscription'),
+        'group' => t('TrendyIndie Subscription'),
+        'parameter' => array(
+            'designer' => array(
+                'type' => 'user',
+                'label' => t('Designer'),
+                'description' => t('The subscriber who want to cancel his/her subscription'),
+            ),
+        ),
+        'base' => '_ti_common_rules_action_cancel_subscription',
+        'access callback' => 'rules_user_integration_access',
+    );
 
-	return $actions;
+    return $actions;
 }
 
 /**
  * Rules action callback to generate new signup code and send to user mail address
- * 
+ *
  * @param stdClass $user Drupal user object
  */
-function _ti_common_rules_action_send_shop_invitation($user){
-	$query = db_query('select rid from {regcode} where uid=:uid and is_active=1 and expires>:time and uses<maxuses order by created limit 1;', array(':uid' => $user->uid, ':time' => time()));
+function _ti_common_rules_action_send_shop_invitation($user)
+{
+    $query = db_query('select rid from {regcode} where uid=:uid and is_active=1 and expires>:time and uses<maxuses order by created limit 1;', array(':uid' => $user->uid, ':time' => time()));
 
-  $new_code = FALSE;
+    $new_code = FALSE;
 
-	$record = $query->fetchAssoc();
-	
-	if (isset($record['rid'])) {
-		$code = regcode_load($record['rid']);
-	}else{
-		$code = new stdClass;
-		$code->begins = time();
-		$code->expires = $code->begins + 86400; // Valid for next 24 hours
-		$code->is_active = 1;
-		$code->maxuses = 1;
-		$code->code = regcode_generate(8, 'alphanum', true);
-		$code->rid = regcode_save($code);
-		$new_code = TRUE;
+    $record = $query->fetchAssoc();
 
-		db_update('regcode')->fields(array('uid' => $user->uid))->condition('rid', $code->rid)->execute();
-	}
+    if (isset($record['rid'])) {
+        $code = regcode_load($record['rid']);
+    } else {
+        $code = new stdClass;
+        $code->begins = time();
+        $code->expires = $code->begins + 86400; // Valid for next 24 hours
+        $code->is_active = 1;
+        $code->maxuses = 1;
+        $code->code = regcode_generate(8, 'alphanum', true);
+        $code->rid = regcode_save($code);
+        $new_code = TRUE;
 
-	$site = variable_get('site_name', 'Trendy Indie');
+        db_update('regcode')->fields(array('uid' => $user->uid))->condition('rid', $code->rid)->execute();
+    }
 
-  $params = array(
-    'regcode' => $code,
-    'subject' => t('Your signup code to activate shop at @site', array(
-				'@site' => $site)),
-    'message' => t('Your signup code to activate shop at @site is : <strong>@code</strong>', array(
-					'@site' => $site,
-					'@code' => $code->code)),
-  );
+    $site = variable_get('site_name', 'Trendy Indie');
 
-  $message = drupal_mail('ti_common', 'regcode', $user->mail, language_default(), $params);
-  
-  if (isset($message['result']) && $message['result'] == TRUE){
-  	if ($new_code){
-	  	drupal_set_message(t('Sent message with signup code to <em>@mail</em>.', array(
-	  		'@mail' => $user->mail,
-	  	)));  		
-  	} else {
-  		drupal_set_message(t('Sent message with previously available signup code to <em>@mail</em>.', array(
-	  		'@mail' => $user->mail,
-	  	)));
-  	}
+    $params = array(
+        'regcode' => $code,
+        'subject' => t('Your signup code to activate shop at @site', array(
+            '@site' => $site)),
+        'message' => t('Your signup code to activate shop at @site is : <strong>@code</strong>', array(
+            '@site' => $site,
+            '@code' => $code->code)),
+    );
 
-  }
+    $message = drupal_mail('ti_common', 'regcode', $user->mail, language_default(), $params);
+
+    if (isset($message['result']) && $message['result'] == TRUE) {
+        if ($new_code) {
+            drupal_set_message(t('Sent message with signup code to <em>@mail</em>.', array(
+                '@mail' => $user->mail,
+            )));
+        } else {
+            drupal_set_message(t('Sent message with previously available signup code to <em>@mail</em>.', array(
+                '@mail' => $user->mail,
+            )));
+        }
+
+    }
 }
 
 /**
  * Rules action callback to activate shop for a given user
- * 
+ *
  * @param stdClass $user Drupal user object
  * @param stdClass code
  */
-function _ti_common_rules_action_activate_shop($user, $code){
-	$result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
-	$existing_shops = $result->rowCount();
+function _ti_common_rules_action_activate_shop($user, $code)
+{
+    $result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user->uid)->execute();
+    $existing_shops = $result->rowCount();
 
-	if (empty($existing_shops)){
-			$account = entity_metadata_wrapper('user', $user->uid);
+    if (empty($existing_shops)) {
+        $account = entity_metadata_wrapper('user', $user->uid);
 
-			$store = entity_create('commerce_store', array(
-				'title' => ucfirst($account->name->value()) . "'s Store",
-				'uid' => $user->uid,
-				'created' => time(),
-				'field_store_description' => '',
-				'field_store_location' => array(
-					'country' => 'US',
-					'administrative_area' => NULL,
-					'sub_administrative_area' => NULL,
-					'locality' => NULL,
-					'dependent_locality' => NULL,
-					'postal_code' => NULL,
-					'thoroughfare' => NULL,
-					'premise' => NULL,
-					'sub_premise' => NULL,
-					'organisation_name' => NULL,
-					'name_line' => NULL,
-					'first_name' => NULL,
-					'last_name' => NULL,
-					'data' => NULL),
-				'type' => 'store',
-			));
+        $store = entity_create('commerce_store', array(
+            'title' => ucfirst($account->name->value()) . "'s Store",
+            'uid' => $user->uid,
+            'created' => time(),
+            'field_store_description' => '',
+            'field_store_location' => array(
+                'country' => 'US',
+                'administrative_area' => NULL,
+                'sub_administrative_area' => NULL,
+                'locality' => NULL,
+                'dependent_locality' => NULL,
+                'postal_code' => NULL,
+                'thoroughfare' => NULL,
+                'premise' => NULL,
+                'sub_premise' => NULL,
+                'organisation_name' => NULL,
+                'name_line' => NULL,
+                'first_name' => NULL,
+                'last_name' => NULL,
+                'data' => NULL),
+            'type' => 'store',
+        ));
 
-			$store->save(); 
+        $store->save();
 
-			drupal_set_message('Your shop is activated.');
-	} else {
-		drupal_set_message('You have already activated shop.');
-	}
+        drupal_set_message('Your shop is activated.');
+    } else {
+        drupal_set_message('You have already activated shop.');
+    }
 }
 
 /**
  * Rules action callback to unsubscribe a user for designer roles.
- * 
+ *
  * @param stdClass $user Drupal user object
  */
-function _ti_common_rules_action_cancel_subscription($user) {
-	$role_id = _ti_common_get_subscribed_designer_role($user);
-	module_load_include('inc', 'ti_common', 'ti_common');
-	$raw_designer_roles = _ti_common_get_designer_roles();
-	$role_name = $user->roles[$role_id];
-	if ($raw_designer_roles[0] != $role_name) {
-		unset($user->roles[$role_id]);
-		$starving_artist_role = user_role_load_by_name($raw_designer_roles[0]);
-		$user->roles[$starving_artist_role->rid] = $starving_artist_role->name; 
-		user_save($user, array('roles' => $user->roles));
-		role_expire_delete_record($user->uid, $role_id);
-		drupal_set_message(t('You have been successfuly unsubscribed from <em>@role</em>', array('@role' => $role_name)));
-	}
+function _ti_common_rules_action_cancel_subscription($user)
+{
+    $role_id = _ti_common_get_subscribed_designer_role($user);
+    module_load_include('inc', 'ti_common', 'ti_common');
+    $raw_designer_roles = _ti_common_get_designer_roles();
+    $role_name = $user->roles[$role_id];
+    if ($raw_designer_roles[0] != $role_name) {
+        unset($user->roles[$role_id]);
+        $starving_artist_role = user_role_load_by_name($raw_designer_roles[0]);
+        $user->roles[$starving_artist_role->rid] = $starving_artist_role->name;
+        user_save($user, array('roles' => $user->roles));
+        role_expire_delete_record($user->uid, $role_id);
+        drupal_set_message(t('You have been successfuly unsubscribed from <em>@role</em>', array('@role' => $role_name)));
+    }
 }
 
 /**
  * Implements hook_mail
- * 
+ *
  * @param string $key An identifier to represent mail context.
  * @param array $message An array containing mail message components
  * @param array $params An array of arguments supplied to drupal_mail()
  */
-function ti_common_mail($key, &$message, $params) {
-  switch ($key) {
-    case 'regcode':
-      $token_data = array(
-        'regcode' => $params['regcode']
-      );
+function ti_common_mail($key, &$message, $params)
+{
+    switch ($key) {
+        case 'regcode':
+            $token_data = array(
+                'regcode' => $params['regcode']
+            );
 
-      $message['headers']['Content-Type'] = 'text/html; charset=UTF-8; format=flowed';
-      $message['subject'] = token_replace($params['subject'], $token_data);
-      $message['body'][]  = token_replace($params['message'], $token_data);
-      break;
-  }
+            $message['headers']['Content-Type'] = 'text/html; charset=UTF-8; format=flowed';
+            $message['subject'] = token_replace($params['subject'], $token_data);
+            $message['body'][] = token_replace($params['message'], $token_data);
+            break;
+    }
 }
 
 /**
  * Implements hook_form_alter
- * 
+ *
  * @param array $form Form definition array
  * @param array $form_state Form state array
  * @param string $form_id Form id
  */
-function ti_common_form_alter($form, $form_state, $form_id) {
-	//debug($form_id);
-	global $user, $base_url;
-	switch($form_id) {
-		case 'product_display_node_form':
-			$count = _ti_common_user_active_listings($user->uid);
-			if(!_ti_common_product_access($count)) {
-				drupal_set_message('Sorry, You can\'t add more products. please upgrade your membership','error');
-				drupal_goto($base_url.'/user/'.$user->uid.'/subscription');
-			}
-		break;
+function ti_common_form_alter($form, $form_state, $form_id)
+{
+    //debug($form_id);
+    global $user, $base_url;
+    switch ($form_id) {
+        case 'product_display_node_form':
+            $count = _ti_common_user_active_listings($user->uid);
+            if (!_ti_common_product_access($count)) {
+                drupal_set_message('Sorry, You can\'t add more products. please upgrade your membership', 'error');
+                drupal_goto($base_url . '/user/' . $user->uid . '/subscription');
+            }
+            break;
 
-	}
+    }
 }
 
 
-function _ti_common_product_access($count) {
-	global $user, $base_url;
-	// get user_role
-	$roles = $user->roles;
-	if(in_array('Starving Artist', $roles) && $count >= 5) {
-		return false;
-	}
+function _ti_common_product_access($count)
+{
+    global $user, $base_url;
+    // get user_role
+    $roles = $user->roles;
+    if (in_array('Starving Artist', $roles) && $count >= 5) {
+        return false;
+    }
 
-	if(in_array('Craftsperson', $roles) && $count >= 25) {
-		return false;
-	}
+    if (in_array('Craftsperson', $roles) && $count >= 25) {
+        return false;
+    }
 
-	if(in_array('Artisan', $roles) && $count >= 100) {
-		return false;
-	}
+    if (in_array('Artisan', $roles) && $count >= 100) {
+        return false;
+    }
 
-	if(in_array('Dilettante', $roles) && $count >= 300) {
-		return false;
-	}
+    if (in_array('Dilettante', $roles) && $count >= 300) {
+        return false;
+    }
 
-	return true;
+    return true;
 
 }
-
 
 
 // function ti_common_product_display_node_form_form_alter(&$form, &$form_state, $form_id) {
@@ -1323,214 +1255,220 @@ function _ti_common_product_access($count) {
 
 /**
  * Implements hook_inline_entity_form_entity_form_alter
- * 
+ *
  * This hook filters the only shop belong to user for shop reference field.
- * 
+ *
  * @param array $entity_form Form definition array
  * @param array $form_state Form state array
  */
-function ti_common_inline_entity_form_entity_form_alter(&$entity_form, &$form_state) {
-	//dpm($entity_form);
-	global $user;
-	$result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id', 'title'))->condition('uid', $user->uid)->execute();
-	$record = $result->fetchAssoc();
-	$store_id = $record['id'];
-	$store_title = $record['title'];
-	$entity_form['cmp_store']['und'][0]['target_id']['#default_value'] = $store_title.' ('.$store_id.')';
-	$entity_form['cmp_store']['#type'] = 'hidden';
+function ti_common_inline_entity_form_entity_form_alter(&$entity_form, &$form_state)
+{
+    //dpm($entity_form);
+    global $user;
+    $result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id', 'title'))->condition('uid', $user->uid)->execute();
+    $record = $result->fetchAssoc();
+    $store_id = $record['id'];
+    $store_title = $record['title'];
+    $entity_form['cmp_store']['und'][0]['target_id']['#default_value'] = $store_title . ' (' . $store_id . ')';
+    $entity_form['cmp_store']['#type'] = 'hidden';
 }
 
 /**
  * hook_form_FORM_ID_alter for the form 'commerce_cart_add_to_cart_form'
- * 
+ *
  * Alter add to cart form (button) on site. Add to cart form button should be labeled as "+" for general product types.
  * And for subscription products there need to have dynamic labels as "Downgrade", "Upgrade", "Subscribed" and "Subscribe" relative to the current user's subscription
- * 
+ *
  * @param array $form Form definition array
  * @param array $form_state Form state array
  * @param string $form_id Form id
  */
-function ti_common_commerce_cart_line_item_refresh($line_item, $order_wrapper) {
-  $qty = $line_item->quantity;
-  $price = $line_item->commerce_unit_price[LANGUAGE_NONE][0]['amount']*2;
+function ti_common_commerce_cart_line_item_refresh($line_item, $order_wrapper)
+{
+    $qty = $line_item->quantity;
+    $price = $line_item->commerce_unit_price[LANGUAGE_NONE][0]['amount'] * 2;
 
-  $line_item->commerce_unit_price[LANGUAGE_NONE][0]['data']['components'][0]['price']['amount'] = $price;
-  $line_item->commerce_unit_price[LANGUAGE_NONE][0]['amount'] = $price;
-  $line_item->commerce_total[LANGUAGE_NONE][0]['data']['components'][0]['price']['amount'] = $qty*$price;
-  $line_item->commerce_total[LANGUAGE_NONE][0]['amount'] = $qty*$price;
-  commerce_line_item_save($line_item);
-  entity_get_controller('commerce_line_item')->resetCache(array($line_item->line_item_id));
+    $line_item->commerce_unit_price[LANGUAGE_NONE][0]['data']['components'][0]['price']['amount'] = $price;
+    $line_item->commerce_unit_price[LANGUAGE_NONE][0]['amount'] = $price;
+    $line_item->commerce_total[LANGUAGE_NONE][0]['data']['components'][0]['price']['amount'] = $qty * $price;
+    $line_item->commerce_total[LANGUAGE_NONE][0]['amount'] = $qty * $price;
+    commerce_line_item_save($line_item);
+    entity_get_controller('commerce_line_item')->resetCache(array($line_item->line_item_id));
 }
 
-function ti_common_form_commerce_cart_add_to_cart_form_alter(&$form, &$form_state, $form_id) {
-  //dpm($form);
-  if (isset($form['product_id']['#value']) && is_numeric($form['product_id']['#value'])) {
-    $product = entity_metadata_wrapper('commerce_product', $form['product_id']['#value']);
-    $type = $product->type->value();
-    switch ($type) {
-      case "product":
-	    if(arg(0) == 'designers' && is_numeric(arg(1))) {
-	    
-	    	$form['submit']['#attributes']['class'][] = 'button tiny';
-	    }
-	    else {
+function ti_common_form_commerce_cart_add_to_cart_form_alter(&$form, &$form_state, $form_id)
+{
+    //dpm($form);
+    if (isset($form['product_id']['#value']) && is_numeric($form['product_id']['#value'])) {
+        $product = entity_metadata_wrapper('commerce_product', $form['product_id']['#value']);
+        $type = $product->type->value();
+        switch ($type) {
+            case "product":
+                if (arg(0) == 'designers' && is_numeric(arg(1))) {
 
-		    $options = _ti_common_commerce_get_quantity_options();
-		    $form['quantity'] = array(
-		     	'#type' => 'select',
-		     	'#options' =>  $options,
-		     	);
-		    $form['quantity']['#datatype'] = 'select';
-		    $form['submit']['#attributes']['class'][] = 'button expand';
-		    $form['quantity']['#attributes']['class'][] = 'large-6 columns';
-		    $form['attributes']['field_size']['#attributes']['class'][] = 'large-6 columns';
-	    }
-	    $form['#validate'][0] = 'ti_common_commerce_cart_add_to_cart_form_validate';
-	    $form['#validate'][1] = 'commerce_cart_add_to_cart_form_validate';
-	    
-	    // $form['submit']['#field_prefix'] = t('to My Cart');    
-      break;
-      case 'subscription':
-        global $user;
-        module_load_include('inc', 'ti_common', 'ti_common');
-        $designer = _ti_common_user_is_desiger($user);
-        $designer_roles = _ti_common_get_designer_roles();
-        if (!$designer) {
-        	$form['submit']['#value'] = t("Subscribe");
-        } else {
-        	if (array_key_exists($product->field_role->value(), $designer)) {
-	        	$form['submit']['#value'] = t("Subscribed");
-						$form['submit']['#disabled'] = TRUE;	
-        	} else {
-        		$product_role_position = user_role_load($product->field_role->value())->weight;
-        		$designer_role_ids = array_keys($designer);
-        		$designer_role_id = array_shift($designer_role_ids);
-        		$user_role_position = user_role_load($designer_role_id)->weight;
+                    $form['submit']['#attributes']['class'][] = 'button tiny';
+                } else {
 
-        		if ($product_role_position < $user_role_position) {
-							$form['submit']['#value'] = t("Downgrade");
-							$form['#submit'] = array('ti_common_subscription_downgrade_form_handler');
-        		} else if ($product_role_position > $user_role_position) {
-							$form['submit']['#value'] = t("Upgrade");
-							$form['#submit'] = array('ti_common_subscription_upgrade_form_handler');
-        		}
-        	}
+                    $options = _ti_common_commerce_get_quantity_options();
+                    $form['quantity'] = array(
+                        '#type' => 'select',
+                        '#options' => $options,
+                    );
+                    $form['quantity']['#datatype'] = 'select';
+                    $form['submit']['#attributes']['class'][] = 'button expand';
+                    $form['quantity']['#attributes']['class'][] = 'large-6 columns';
+                    $form['attributes']['field_size']['#attributes']['class'][] = 'large-6 columns';
+                }
+                $form['#validate'][0] = 'ti_common_commerce_cart_add_to_cart_form_validate';
+                $form['#validate'][1] = 'commerce_cart_add_to_cart_form_validate';
+
+                // $form['submit']['#field_prefix'] = t('to My Cart');
+                break;
+            case 'subscription':
+                global $user;
+                module_load_include('inc', 'ti_common', 'ti_common');
+                $designer = _ti_common_user_is_desiger($user);
+                $designer_roles = _ti_common_get_designer_roles();
+                if (!$designer) {
+                    $form['submit']['#value'] = t("Subscribe");
+                } else {
+                    if (array_key_exists($product->field_role->value(), $designer)) {
+                        $form['submit']['#value'] = t("Subscribed");
+                        $form['submit']['#disabled'] = TRUE;
+                    } else {
+                        $product_role_position = user_role_load($product->field_role->value())->weight;
+                        $designer_role_ids = array_keys($designer);
+                        $designer_role_id = array_shift($designer_role_ids);
+                        $user_role_position = user_role_load($designer_role_id)->weight;
+
+                        if ($product_role_position < $user_role_position) {
+                            $form['submit']['#value'] = t("Downgrade");
+                            $form['#submit'] = array('ti_common_subscription_downgrade_form_handler');
+                        } else if ($product_role_position > $user_role_position) {
+                            $form['submit']['#value'] = t("Upgrade");
+                            $form['#submit'] = array('ti_common_subscription_upgrade_form_handler');
+                        }
+                    }
+                }
+                $form['submit']['#attributes'] = array(
+                    'class' => array('button', 'small-12', 'medium-12', 'large-12'),
+                );
+                break;
         }
-        $form['submit']['#attributes'] = array(
-        	'class' => array('button', 'small-12', 'medium-12', 'large-12'),
-        );
-      break;
     }
-  }
 }
 
 /**
  * Form validate handler: validate the product and quantity to add to the cart.
  */
-function ti_common_commerce_cart_add_to_cart_form_validate($form, &$form_state) {
-  // Check to ensure the quantity is valid.
-  global $user;
-  $uid = $form_state['values']['uid'];
-  $store_id = $form_state['default_product']->cmp_store[LANGUAGE_NONE][0]['target_id'];
-  $storew = entity_metadata_wrapper('commerce_store', $store_id);
-  $owner_id = $storew->uid->uid->value();
-  $monthly_sale =  _ti_common_user_month_sale($owner_id);
-  $amount = 0;
-  $id = commerce_cart_order_id($user->uid);
-  //echo $id; exit;
-  $q = db_query("SELECT co.order_id, cli.quantity, cp.product_id, cli.line_item_label, cp.sku FROM {commerce_order} co INNER JOIN {commerce_line_item} cli ON co.order_id = cli.order_id INNER JOIN {commerce_product} cp ON cp.sku = cli.line_item_label WHERE cp.uid=:uid AND co.status IN ('cart') AND cp.status=1 AND cp.type='product' AND co.order_id = :order_id", array(':uid' => $owner_id, ':order_id' => $id));
-  foreach($q as $res) {
-  	$product_id = $res->product_id;
-  	$quantity = (int) $res->quantity;
-  	$product = commerce_product_load($product_id);
-  	$price = commerce_product_calculate_sell_price($product);
-  	$amount += $quantity*$price['amount'];
-  }
-  
-  $amount += $form_state['values']['line_item_fields']['commerce_unit_price'][LANGUAGE_NONE][0]['amount'];
- // echo "<pre>"; print_r($form_state['values']); exit;
-  $currency_code = $form_state['values']['line_item_fields']['commerce_unit_price'][LANGUAGE_NONE][0]['currency_code'];
-  //$product_price =  commerce_currency_format($amount, $currency_code);
-  // echo $monthly_amount.'---'.$amount; exit;
-  if($monthly_sale['currency'] ==$currency_code && $amount > $monthly_sale['amount']) {
-  	form_set_error('sale', t('The seller has reached his sale limit. Contact him by sending him a message'));
-  }
+function ti_common_commerce_cart_add_to_cart_form_validate($form, &$form_state)
+{
+    // Check to ensure the quantity is valid.
+    global $user;
+    $uid = $form_state['values']['uid'];
+    $store_id = $form_state['default_product']->cmp_store[LANGUAGE_NONE][0]['target_id'];
+    $storew = entity_metadata_wrapper('commerce_store', $store_id);
+    $owner_id = $storew->uid->uid->value();
+    $monthly_sale = _ti_common_user_month_sale($owner_id);
+    $amount = 0;
+    $id = commerce_cart_order_id($user->uid);
+    //echo $id; exit;
+    $q = db_query("SELECT co.order_id, cli.quantity, cp.product_id, cli.line_item_label, cp.sku FROM {commerce_order} co INNER JOIN {commerce_line_item} cli ON co.order_id = cli.order_id INNER JOIN {commerce_product} cp ON cp.sku = cli.line_item_label WHERE cp.uid=:uid AND co.status IN ('cart') AND cp.status=1 AND cp.type='product' AND co.order_id = :order_id", array(':uid' => $owner_id, ':order_id' => $id));
+    foreach ($q as $res) {
+        $product_id = $res->product_id;
+        $quantity = (int)$res->quantity;
+        $product = commerce_product_load($product_id);
+        $price = commerce_product_calculate_sell_price($product);
+        $amount += $quantity * $price['amount'];
+    }
 
-  
-  
+    $amount += $form_state['values']['line_item_fields']['commerce_unit_price'][LANGUAGE_NONE][0]['amount'];
+    // echo "<pre>"; print_r($form_state['values']); exit;
+    $currency_code = $form_state['values']['line_item_fields']['commerce_unit_price'][LANGUAGE_NONE][0]['currency_code'];
+    //$product_price =  commerce_currency_format($amount, $currency_code);
+    // echo $monthly_amount.'---'.$amount; exit;
+    if ($monthly_sale['currency'] == $currency_code && $amount > $monthly_sale['amount']) {
+        form_set_error('sale', t('The seller has reached his sale limit. Contact him by sending him a message'));
+    }
+
+
 }
 
 /*
  * Modify the quantity widget in Shopping Carts.
  */
-function _ti_common_commerce_modify_shoppingcart_quantity_options(&$form) {
-  // loop through all of the quantity fields in the shopping cart form
-  foreach ($form['edit_quantity'] as $key => $quantity_field) {
-    if (is_array($quantity_field)) {
-      // query the DB for each line item in order to get the product id
-      $entity_type = 'commerce_line_item';
-      $query = new EntityFieldQuery();
-      $query->entityCondition('entity_type', $entity_type, '=')
-            ->propertyCondition('line_item_id', $quantity_field['#line_item_id'], '=');
-      $result = $query->execute();
-      if (!empty($result[$entity_type])) {
-        // load the full line item information
-        $line_item = entity_load($entity_type, array_keys($result[$entity_type]));
-        // get the options array if a select box is necessary
-        $pid = $line_item[$quantity_field['#line_item_id']]->commerce_product['und'][0]['product_id'];
-        $options = _mymodule_commerce_get_quantity_options($pid);
-        // if options were returned, update the widget
-        if (count($options)) {
-          $form['edit_quantity'][$key]['#type'] = 'select';
-          $form['edit_quantity'][$key]['#size'] = 1;
-          $form['edit_quantity'][$key]['#options'] = $options;
+function _ti_common_commerce_modify_shoppingcart_quantity_options(&$form)
+{
+    // loop through all of the quantity fields in the shopping cart form
+    foreach ($form['edit_quantity'] as $key => $quantity_field) {
+        if (is_array($quantity_field)) {
+            // query the DB for each line item in order to get the product id
+            $entity_type = 'commerce_line_item';
+            $query = new EntityFieldQuery();
+            $query->entityCondition('entity_type', $entity_type, '=')
+                ->propertyCondition('line_item_id', $quantity_field['#line_item_id'], '=');
+            $result = $query->execute();
+            if (!empty($result[$entity_type])) {
+                // load the full line item information
+                $line_item = entity_load($entity_type, array_keys($result[$entity_type]));
+                // get the options array if a select box is necessary
+                $pid = $line_item[$quantity_field['#line_item_id']]->commerce_product['und'][0]['product_id'];
+                $options = _mymodule_commerce_get_quantity_options($pid);
+                // if options were returned, update the widget
+                if (count($options)) {
+                    $form['edit_quantity'][$key]['#type'] = 'select';
+                    $form['edit_quantity'][$key]['#size'] = 1;
+                    $form['edit_quantity'][$key]['#options'] = $options;
+                }
+            }
         }
-      }
     }
-  }
 }
 
 /*
  * Helper function to modify quantity widgets (when necessary) when the quantity block
  *   is greater than 1 for a particular product.
  */
-function _ti_common_commerce_get_quantity_options() {
-  $options = array(
-  	1 => 1,
-  	2 => 2,
-  	3 => 3,
-  	4 => 4,
-  	5 => 5,
-  	10 => 10,
-  	15 => 15,
-  	20 => 20,
-  );
-  
-  return $options;
+function _ti_common_commerce_get_quantity_options()
+{
+    $options = array(
+        1 => 1,
+        2 => 2,
+        3 => 3,
+        4 => 4,
+        5 => 5,
+        10 => 10,
+        15 => 15,
+        20 => 20,
+    );
+
+    return $options;
 }
+
 /**
  * Form submit handler to initiate the subscription downgrade process.
  *
  * @param array $form Form definition array
  * @param array $form_state Form state array
  */
-function ti_common_subscription_downgrade_form_handler($form, $form_state) {
-		$values = $form_state['values'];
-		drupal_set_confirmation(t('Do you really want to downgrade your subscription package?'), array(
-				'downgrade' => array(
-					'callback' => '_ti_common_confirmation_dialog_downgrade_subscription',
-					'title' => t('Downgrade'),
-					'attributes' => array('class' => array('button', 'tiny', 'alert')),
-				),
-			), array(
-				'title' => t('Cancel'),
-				'path' => current_path(),
-			), 'warning' , 'This action will limit your certain benifits of current subscription package.',
-			array(
-				'product_id' => $values['product_id'],
-				'uid' => $values['uid']
-			)
-		);
+function ti_common_subscription_downgrade_form_handler($form, $form_state)
+{
+    $values = $form_state['values'];
+    drupal_set_confirmation(t('Do you really want to downgrade your subscription package?'), array(
+        'downgrade' => array(
+            'callback' => '_ti_common_confirmation_dialog_downgrade_subscription',
+            'title' => t('Downgrade'),
+            'attributes' => array('class' => array('button', 'tiny', 'alert')),
+        ),
+    ), array(
+        'title' => t('Cancel'),
+        'path' => current_path(),
+    ), 'warning', 'This action will limit your certain benifits of current subscription package.',
+        array(
+            'product_id' => $values['product_id'],
+            'uid' => $values['uid']
+        )
+    );
 }
 
 /**
@@ -1539,15 +1477,16 @@ function ti_common_subscription_downgrade_form_handler($form, $form_state) {
  * @param array $form Form definition array
  * @param array $form_state Form state array
  */
-function ti_common_subscription_upgrade_form_handler($form, $form_state) {
-	$values = $form_state['values'];
-	$product_id = $values['product_id'];
-	$uid = $values['uid'];
-	$quantity = $values['quantity'];
-	$product = commerce_product_load($product_id);
-	$line_item = commerce_product_line_item_new($product, $quantity);
-	commerce_cart_product_add($uid, $line_item, $combine=TRUE);
-	drupal_set_message(t('%product_name subscription product has been added to your shoping cart. Please !checkout to complete the subscription upgrade process.', array('%product_name' => $product->title, '!checkout' => l(t('checkout'), 'cart', array('attributes' => array('class'=>array('button', 'tiny')))))));
+function ti_common_subscription_upgrade_form_handler($form, $form_state)
+{
+    $values = $form_state['values'];
+    $product_id = $values['product_id'];
+    $uid = $values['uid'];
+    $quantity = $values['quantity'];
+    $product = commerce_product_load($product_id);
+    $line_item = commerce_product_line_item_new($product, $quantity);
+    commerce_cart_product_add($uid, $line_item, $combine = TRUE);
+    drupal_set_message(t('%product_name subscription product has been added to your shoping cart. Please !checkout to complete the subscription upgrade process.', array('%product_name' => $product->title, '!checkout' => l(t('checkout'), 'cart', array('attributes' => array('class' => array('button', 'tiny')))))));
 }
 
 /**
@@ -1555,21 +1494,22 @@ function ti_common_subscription_upgrade_form_handler($form, $form_state) {
  *
  * @param int $role_id Drupal user role id
  */
-function _ti_common_role_subscription_package($role_id){
-	$subscr_efq = new EntityFieldQuery();
-	$subscr_id = $subscr_efq->entityCondition('entity_type', 'commerce_product')
-		->entityCondition('bundle', 'subscription')
-		->fieldCondition('field_role', 'value', $role_id)
-		->execute();
-		if (!empty($subscr_id)) {
-			$subscr_id = array_keys($subscr_id['commerce_product']);
-			$subscr_id = array_shift($subscr_id);
-		
-			$subscr = entity_metadata_wrapper('commerce_product', $subscr_id);
-			return $subscr;
-		} else {
-			return NULL;
-		}
+function _ti_common_role_subscription_package($role_id)
+{
+    $subscr_efq = new EntityFieldQuery();
+    $subscr_id = $subscr_efq->entityCondition('entity_type', 'commerce_product')
+        ->entityCondition('bundle', 'subscription')
+        ->fieldCondition('field_role', 'value', $role_id)
+        ->execute();
+    if (!empty($subscr_id)) {
+        $subscr_id = array_keys($subscr_id['commerce_product']);
+        $subscr_id = array_shift($subscr_id);
+
+        $subscr = entity_metadata_wrapper('commerce_product', $subscr_id);
+        return $subscr;
+    } else {
+        return NULL;
+    }
 }
 
 /**
@@ -1577,112 +1517,118 @@ function _ti_common_role_subscription_package($role_id){
  *
  * @param stdClass $user Drupal user object
  */
-function _ti_common_get_subscribed_designer_role($user){
-	module_load_include('inc', 'ti_common', 'ti_common');
-	$designer_roles = _ti_common_get_designer_roles();
-	$designer_tier = array_intersect($user->roles, $designer_roles);
-	if (!empty($designer_tier)){
-		$role_id = array_keys($designer_tier);
-		$role_id = array_shift($role_id);
-		return $role_id;
-	}else{
-		return NULL;
-	}
+function _ti_common_get_subscribed_designer_role($user)
+{
+    module_load_include('inc', 'ti_common', 'ti_common');
+    $designer_roles = _ti_common_get_designer_roles();
+    $designer_tier = array_intersect($user->roles, $designer_roles);
+    if (!empty($designer_tier)) {
+        $role_id = array_keys($designer_tier);
+        $role_id = array_shift($role_id);
+        return $role_id;
+    } else {
+        return NULL;
+    }
 }
 
 /**
  * Returns the total active product listing for a user
- * 
+ *
  * @param int $uid Drupal user id
  */
-function _ti_common_user_active_listings($uid){
-	if (!empty($uid)) {
-		return db_select('commerce_product', 'cp')
-		->fields('cp', array('product_id'))
-		->condition('uid', $uid)
-		->condition('type', 'product')
-		->condition('status', 1)
-		->execute()->rowCount();
-	} else {
-		return -1;
-	}
+function _ti_common_user_active_listings($uid)
+{
+    if (!empty($uid)) {
+        return db_select('commerce_product', 'cp')
+            ->fields('cp', array('product_id'))
+            ->condition('uid', $uid)
+            ->condition('type', 'product')
+            ->condition('status', 1)
+            ->execute()->rowCount();
+    } else {
+        return -1;
+    }
 }
 
 /**
  * Callback to calculate current month sales for a user
- * 
+ *
  * @param int $uid Drupal user id
  */
-function _ti_common_user_month_sale($uid){
- $account = user_load($uid);
- $role_id = _ti_common_get_subscribed_designer_role($account);
- $package = _ti_common_role_subscription_package($role_id);
- 
- $monthly_sale_limit = $package->field_monthly_sales->value()['amount'];
- $result = views_get_view_result('commerce_reports_customer_statistics', 'monthly_store_sales', $uid);
+function _ti_common_user_month_sale($uid)
+{
+    $account = user_load($uid);
+    $role_id = _ti_common_get_subscribed_designer_role($account);
+    $package = _ti_common_role_subscription_package($role_id);
+
+    $monthly_sale_limit = $package->field_monthly_sales->value()['amount'];
+    $result = views_get_view_result('commerce_reports_customer_statistics', 'monthly_store_sales', $uid);
 // echo "<pre>";print_r($result); exit;
- $sale = $result[0]->field_data_commerce_order_total_commerce_order_total_amount;
- $remaining_sale = $monthly_sale_limit - $sale;
+    $sale = $result[0]->field_data_commerce_order_total_commerce_order_total_amount;
+    $remaining_sale = $monthly_sale_limit - $sale;
 // echo $remaining_sale;
- //echo commerce_currency_format($remaining_sale, $package->field_monthly_sales->value()['currency_code'], $package); exit('here');
- $formated_sale = commerce_currency_format($remaining_sale, $package->field_monthly_sales->value()['currency_code'], $package);
- $ret_array['amount'] = $remaining_sale;
- $ret_array['currency'] = $package->field_monthly_sales->value()['currency_code'];
- $ret_array['formated_sale'] = $formated_sale;
- return $ret_array;
+    //echo commerce_currency_format($remaining_sale, $package->field_monthly_sales->value()['currency_code'], $package); exit('here');
+    $formated_sale = commerce_currency_format($remaining_sale, $package->field_monthly_sales->value()['currency_code'], $package);
+    $ret_array['amount'] = $remaining_sale;
+    $ret_array['currency'] = $package->field_monthly_sales->value()['currency_code'];
+    $ret_array['formated_sale'] = $formated_sale;
+    return $ret_array;
 
 
 }
 
 /**
  * Callback to calculate current month sales for a user
- * 
+ *
  * @param int $uid Drupal user id
  */
-function _ti_common_user_upgrade_elegibility($uid){
- 
- global $user;
- $role_id = _ti_common_get_subscribed_designer_role($user);
- $package = _ti_common_role_subscription_package($role_id);
- $upgrade_eligibility = $package->field_upgrade_eligibility->value()['amount']/100;
- $result = views_get_view_result('commerce_reports_customer_statistics', 'total_store_sales', $uid);
- $total_sale =  $result[0]->field_data_commerce_order_total_commerce_order_total_amount/100;
- if($total_sale >= $upgrade_eligibility) {
- 	return "Yes";
- }
- return "No";
+function _ti_common_user_upgrade_elegibility($uid)
+{
+
+    global $user;
+    $role_id = _ti_common_get_subscribed_designer_role($user);
+    $package = _ti_common_role_subscription_package($role_id);
+    $upgrade_eligibility = $package->field_upgrade_eligibility->value()['amount'] / 100;
+    $result = views_get_view_result('commerce_reports_customer_statistics', 'total_store_sales', $uid);
+    $total_sale = $result[0]->field_data_commerce_order_total_commerce_order_total_amount / 100;
+    if ($total_sale >= $upgrade_eligibility) {
+        return "Yes";
+    }
+    return "No";
 
 }
-function db_queryd($query, array $args = array(), array $options = array(), &$return = FALSE, $name = NULL) {
-  if (!user_access('access devel information')) {
-    return db_query($query, $args, $options);
-  }
-  $db_query_res = db_query($query, $args, $options);
-  $sql = (string) $db_query_res->getQueryString();
-  $quoted = array();
-  $connection = Database::getConnection();
-  foreach ($args as $key => $val) {
-    if (is_int($key)) {
-      $sql = preg_replace('/\?/', $connection->quote($val), $sql);
+
+function db_queryd($query, array $args = array(), array $options = array(), &$return = FALSE, $name = NULL)
+{
+    if (!user_access('access devel information')) {
+        return db_query($query, $args, $options);
     }
-    else {
-      $quoted[$key] = $connection->quote($val);
+    $db_query_res = db_query($query, $args, $options);
+    $sql = (string)$db_query_res->getQueryString();
+    $quoted = array();
+    $connection = Database::getConnection();
+    foreach ($args as $key => $val) {
+        if (is_int($key)) {
+            $sql = preg_replace('/\?/', $connection->quote($val), $sql);
+        } else {
+            $quoted[$key] = $connection->quote($val);
+        }
     }
-  }
-  $sql = strtr($sql, $quoted);
-  if ($return) {
-    $return = $sql;
-  }
-  else {
-    dpm($sql, (string) $name);
-  }
-  return $db_query_res;
+    $sql = strtr($sql, $quoted);
+    if ($return) {
+        $return = $sql;
+    } else {
+        dpm($sql, (string)$name);
+    }
+    return $db_query_res;
 }
+
 /**
  * Implement hook_init
  */
-function ti_common_init(){
-	
+function ti_common_init()
+{
+
 }
 
 /**
@@ -1691,9 +1637,10 @@ function ti_common_init(){
  * @param array $form Form definition array
  * @param array $form_state Form state array
  */
-function _ti_common_confirmation_dialog_cancel_subscription($form, $form_state) {
-	global $user;
-	rules_invoke_event('ti_common_unsubscribe_designer', $user);
+function _ti_common_confirmation_dialog_cancel_subscription($form, $form_state)
+{
+    global $user;
+    rules_invoke_event('ti_common_unsubscribe_designer', $user);
 }
 
 /**
@@ -1702,21 +1649,22 @@ function _ti_common_confirmation_dialog_cancel_subscription($form, $form_state) 
  * @param array $form Form definition array
  * @param array $form_state Form state array
  */
-function _ti_common_confirmation_dialog_downgrade_subscription($form, $form_state) {
-	global $user;
-	$values = $form_state['values'];
-	$product_id = $values['product_id'];
-	$product = commerce_product_load($product_id);
-	$role_id = _ti_common_get_subscribed_designer_role($user);
-	$expiry = role_expire_get_user_role_expiry_time($user->uid, $role_id);
-	role_expire_delete_record($user->uid, $role_id);
-	unset($user->roles[$role_id]);
-	$new_role = $product->field_role[LANGUAGE_NONE][0]['value'];
-	module_load_include('inc', 'ti_common', 'ti_common');
-	$system_user_roles = user_roles();
-	$user->roles[$new_role] = $system_user_roles[$new_role];
-	user_save($user, array('roles' => $user->roles));
-	drupal_set_message(t('You account has been updated for new subscription package %package.', array('%package' => $product->title)));
+function _ti_common_confirmation_dialog_downgrade_subscription($form, $form_state)
+{
+    global $user;
+    $values = $form_state['values'];
+    $product_id = $values['product_id'];
+    $product = commerce_product_load($product_id);
+    $role_id = _ti_common_get_subscribed_designer_role($user);
+    $expiry = role_expire_get_user_role_expiry_time($user->uid, $role_id);
+    role_expire_delete_record($user->uid, $role_id);
+    unset($user->roles[$role_id]);
+    $new_role = $product->field_role[LANGUAGE_NONE][0]['value'];
+    module_load_include('inc', 'ti_common', 'ti_common');
+    $system_user_roles = user_roles();
+    $user->roles[$new_role] = $system_user_roles[$new_role];
+    user_save($user, array('roles' => $user->roles));
+    drupal_set_message(t('You account has been updated for new subscription package %package.', array('%package' => $product->title)));
 }
 
 /**
@@ -1725,53 +1673,57 @@ function _ti_common_confirmation_dialog_downgrade_subscription($form, $form_stat
  * @param array $form Form definition array
  * @param array $form_state Form state array
  */
-function _ti_common_confirmation_dialog_delete_privatemsg_thread($form, $form_state) {
-	$values = $form_state['values'];
-	$thread_id = (int)$values['thread_id'];
-	if (!empty($thread_id)) {
-		privatemsg_thread_change_delete($thread_id, 1);
-	}
+function _ti_common_confirmation_dialog_delete_privatemsg_thread($form, $form_state)
+{
+    $values = $form_state['values'];
+    $thread_id = (int)$values['thread_id'];
+    if (!empty($thread_id)) {
+        privatemsg_thread_change_delete($thread_id, 1);
+    }
 }
 
 
-function _ti_common_get_shop_info($user_id = 0) {
-	$user = user_load($user_id);
-	$result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user_id)->execute();
-			$id = $result->fetchAssoc()['id'];
-			if (!empty($id)) {
-				$store = entity_load('commerce_store', array($id));
-				$storew = entity_metadata_wrapper('commerce_store', $id);
-				$field_address = field_view_field('commerce_store', $store[$id], 'field_store_location');
-				$field_address['#label_display'] = 'hidden';
-				$shop_info = array();
-				$shop_info['shop_id'] = (int) $id;
-				$shop_info['shop_name'] =  $storew->title->value();
-				$shop_info['shop_description'] =  $storew->field_store_discription->value();
-				$shop_info['shop_location'] =  render($field_address);
-				$shop_info['count_products'] =  _ti_common_product_count($user, array('product'));
-				$shop_info['count_categories'] =  _ti_common_product_categories_count($user, array('product'));
-				$shop_info['count_favourites'] =  _ti_common_favourite_items($user->uid);
-				$shop_info['counts_orders'] =  _ti_common_product_orders_count($user, array('product'));
-				$shop_info['shop_owner'] = ti_common_user_name($user);
-				return $shop_info;
-			}
-			return;
+function _ti_common_get_shop_info($user_id = 0)
+{
+    $user = user_load($user_id);
+    $result = db_select('eck_commerce_store', 'ecs')->fields('ecs', array('id'))->condition('uid', $user_id)->execute();
+    $id = $result->fetchAssoc()['id'];
+    if (!empty($id)) {
+        $store = entity_load('commerce_store', array($id));
+        $storew = entity_metadata_wrapper('commerce_store', $id);
+        $field_address = field_view_field('commerce_store', $store[$id], 'field_store_location');
+        $field_address['#label_display'] = 'hidden';
+        $shop_info = array();
+        $shop_info['shop_id'] = (int)$id;
+        $shop_info['shop_name'] = $storew->title->value();
+        $shop_info['shop_description'] = $storew->field_store_discription->value();
+        $shop_info['shop_location'] = render($field_address);
+        $shop_info['count_products'] = _ti_common_product_count($user, array('product'));
+        $shop_info['count_categories'] = _ti_common_product_categories_count($user, array('product'));
+        $shop_info['count_favourites'] = _ti_common_favourite_items($user->uid);
+        $shop_info['counts_orders'] = _ti_common_product_orders_count($user, array('product'));
+        $shop_info['shop_owner'] = ti_common_user_name($user);
+        return $shop_info;
+    }
+    return;
 }
 
-function _ti_common_favourite_items($user_id = 0) {
-	$fid = db_select('flag', 'f')->fields('f', array('fid'))->condition('name', 'product_favorites')->execute()->fetchAssoc();
-	$fid = $fid['fid'];
-	$query = db_select('flagging', 'f');
-	$query->fields('f', array('flagging_id', 'entity_type', 'entity_id'))
-		->condition('fid', $fid)
-		->condition('uid', $user_id);
+function _ti_common_favourite_items($user_id = 0)
+{
+    $fid = db_select('flag', 'f')->fields('f', array('fid'))->condition('name', 'product_favorites')->execute()->fetchAssoc();
+    $fid = $fid['fid'];
+    $query = db_select('flagging', 'f');
+    $query->fields('f', array('flagging_id', 'entity_type', 'entity_id'))
+        ->condition('fid', $fid)
+        ->condition('uid', $user_id);
 
-	$counts = $query->execute()->rowCount();
-	return $counts;
+    $counts = $query->execute()->rowCount();
+    return $counts;
 }
 
-function ti_common_adaptive_payment_rule($commerce_order){
-    
+function ti_common_adaptive_payment_rule($commerce_order)
+{
+
     /*$order_wrapper = entity_metadata_wrapper('commerce_order', $commerce_order);
     $total_price = $order_wrapper->commerce_order_total->value()['amount']; 
     //dpm($total_price);
@@ -1803,21 +1755,22 @@ function ti_common_adaptive_payment_rule($commerce_order){
 	}
 	$recievers_info = array_values($out); // make the out array numerically indexed
     */
- 
+
 }
 
-function _ti_common_get_user_address_profile($user_id) {
-	$query = db_select("commerce_addressbook_defaults","c");
-	$query->fields("c",array("profile_id"));
-	$query->condition("uid",$user_id);
-	$query->condition("type","billing");
-	$output = $query->execute()->fetchObject();
+function _ti_common_get_user_address_profile($user_id)
+{
+    $query = db_select("commerce_addressbook_defaults", "c");
+    $query->fields("c", array("profile_id"));
+    $query->condition("uid", $user_id);
+    $query->condition("type", "billing");
+    $output = $query->execute()->fetchObject();
 
-	$profile_id = $output->profile_id;
-	if(!empty($profile_id)){
-	    $franchisee_info = commerce_customer_profile_load ($profile_id);
-	    echo "<pre>";
-	    print_r($franchisee_info);
-	    echo "</pre>";
-	}
+    $profile_id = $output->profile_id;
+    if (!empty($profile_id)) {
+        $franchisee_info = commerce_customer_profile_load($profile_id);
+        echo "<pre>";
+        print_r($franchisee_info);
+        echo "</pre>";
+    }
 }
