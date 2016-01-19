@@ -1,0 +1,265 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for ti_common module.
+ */
+
+/**
+ * Implements hook_install
+ * 
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_install/7 hook_install
+ */
+function ti_common_install() {  
+  module_load_include('inc', 'ti_common', 'ti_common');
+  $roles = _ti_common_get_designer_roles();
+
+  foreach($roles as $name) {
+    $existing_role = user_role_load_by_name($name);
+    if (empty($existing_role)){
+      $role = new stdClass();
+      $role->name = $name;
+      user_role_save($role);
+    }
+  }
+}
+
+/**
+ * Implements hook_uninstall
+ * 
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_uninstall/7 hook_uninstall
+ */
+function ti_common_uninstall() {
+  $roles = _ti_common_get_designer_roles();
+
+  foreach($roles as $name) {
+    user_role_delete($name);
+  }
+}
+
+/**
+ * Implement hook_enable
+ * 
+ * Initilizes four fields and their instances for user entity
+ * 
+ * @see https://api.drupal.org/api/drupal/modules%21system%21system.api.php/function/hook_enable/7 hook_enable
+ */
+function ti_common_enable() {
+
+  $user_field_first_name = field_info_field('field_first_name');
+  if (!$user_field_first_name) {
+    $field = array(
+        'field_name' => 'field_first_name', 
+        'type' => 'text',
+        'active' => 1,
+        'bundles' => array('user' => array('user')),
+        'settings' => array('max_length' => 255),
+    );
+    field_create_field($field);
+  }
+
+  $user_field_last_name = field_info_field('field_last_name');
+  if (!$user_field_last_name) {
+    $field = array(
+        'field_name' => 'field_last_name', 
+        'type' => 'text',
+        'active' => 1,
+        'bundles' => array('user' => array('user')),
+        'settings' => array('max_length' => 255),
+    );
+    field_create_field($field);
+  }
+
+  $user_field_first_name_instance = field_info_instance('user', 'field_first_name', 'user');
+  if (!$user_field_first_name_instance) {
+    $instance = array(
+      'label' => t('First Name'),
+      'field_name' => 'field_first_name', 
+      'entity_type' => 'user', 
+      'bundle' => 'user', 
+      'required' => FALSE,
+      'settings' => array(
+          'user_register_form' => 1,
+      ),
+      'widget' => array(
+          'type' => 'text_textfield',
+          'module' => 'text',
+          'weight' => '1',
+          'settings' => array(
+            'size' => 60,
+          ),
+      ), 
+    );
+    field_create_instance($instance);
+  }
+
+  $user_field_last_name_instance = field_info_instance('user', 'field_last_name', 'user');
+  if (!$user_field_last_name_instance) {
+    $instance = array(
+      'label' => t('Last Name'),
+      'field_name' => 'field_last_name', 
+      'entity_type' => 'user', 
+      'bundle' => 'user', 
+      'required' => FALSE,
+      'settings' => array(
+          'user_register_form' => 1,
+      ),
+      'widget' => array(
+          'type' => 'text_textfield',
+          'module' => 'text',
+          'weight' => '1',
+          'settings' => array(
+            'size' => 60,
+          ),
+      ), 
+    );
+    field_create_instance($instance);
+  }
+
+  $user_field_enable_public_profile = field_info_field('field_enable_public_profile');
+  if (!$user_field_enable_public_profile) {
+    module_load_include('inc', 'ti_common', 'ti_common');
+
+    $field = array(
+      'field_name' => 'field_enable_public_profile', 
+      'type' => 'list_boolean',
+      'module' => 'list',
+      'active' => 1,
+      'bundles' => array('user' => array('user')),
+      'settings' => array(
+        'allowed_values' => array('', ''),
+        'allowed_values_function' => '',
+        'user_role_field' => _ti_common_get_designer_field_roles(),
+      ),
+    );
+
+    field_create_field($field);
+  }
+
+  $user_field_enable_public_profile_instance = field_info_instance('user', 'field_enable_public_profile', 'user');
+  if (!$user_field_enable_public_profile_instance) {
+    $instance = array(
+      'label' => t('Public Profile View'),
+      'field_name' => 'field_enable_public_profile', 
+      'entity_type' => 'user', 
+      'bundle' => 'user', 
+      'required' => FALSE,
+      'settings' => array(
+          'user_register_form' => 0,
+      ),
+      'default_value' => array(
+        array('value' => 1)
+      ),
+      'description' => 'Manage to publish your profile to public.',
+      'widget' => array(
+        'weight' => 9,
+        'type' => 'options_onoff',
+        'module' => 'options',
+        'active' => 1,
+        'settings' => array(
+          'display_label' => 1,
+        ),
+      ), 
+    );
+    field_create_instance($instance);
+  }
+
+  //enable featured designer field
+
+   $user_field_featured_designer = field_info_field('user_field_featured_designer');
+  if (!$user_field_featured_designer) {
+    module_load_include('inc', 'ti_common', 'ti_common');
+
+    $field = array(
+      'field_name' => 'user_field_featured_designer', 
+      'type' => 'list_boolean',
+      'module' => 'list',
+      'active' => 1,
+      'bundles' => array('user' => array('user')),
+      'settings' => array(
+        'allowed_values' => array('', ''),
+        'allowed_values_function' => '',
+        'user_role_field' => _ti_common_get_designer_field_roles(),
+      ),
+    );
+
+    field_create_field($field);
+  }
+
+  $user_field_featured_designer_instance = field_info_instance('user', 'user_field_featured_designer', 'user');
+  if (!$user_field_featured_designer_instance) {
+    $instance = array(
+      'label' => t('Featured Designer'),
+      'field_name' => 'user_field_featured_designer', 
+      'entity_type' => 'user', 
+      'bundle' => 'user', 
+      'required' => FALSE,
+      'settings' => array(
+          'user_register_form' => 0,
+      ),
+      'default_value' => array(
+        array('value' => 0)
+      ),
+      'description' => 'Choose designer as featured.',
+      'widget' => array(
+        'weight' => 10,
+        'type' => 'options_onoff',
+        'module' => 'options',
+        'active' => 1,
+        'settings' => array(
+          'display_label' => 1,
+        ),
+      ), 
+    );
+    field_create_instance($instance);
+  }
+
+  $user_field_enable_auto_share = field_info_field('field_enable_auto_share');
+  if (!$user_field_enable_auto_share) {
+    module_load_include('inc', 'ti_common', 'ti_common');
+
+    $field = array(
+      'field_name' => 'field_enable_auto_share', 
+      'type' => 'list_boolean',
+      'module' => 'list',
+      'active' => 1,
+      'bundles' => array('user' => array('user')),
+      'settings' => array(
+        'allowed_values' => array('', ''),
+        'allowed_values_function' => '',
+        'user_role_field' => _ti_common_get_designer_field_roles(),
+      ),
+    );
+
+    field_create_field($field);
+  }
+
+  $user_field_enable_auto_share_instance = field_info_instance('user', 'field_enable_auto_share', 'user');
+  if (!$user_field_enable_auto_share_instance) {
+    $instance = array(
+      'label' => t('Auto Share'),
+      'field_name' => 'field_enable_auto_share', 
+      'entity_type' => 'user', 
+      'bundle' => 'user', 
+      'required' => FALSE,
+      'settings' => array(
+          'user_register_form' => 0,
+      ),
+      'default_value' => array(
+        array('value' => 0)
+      ),
+      'description' => 'Enable to share your activities, posts and products on social media e.g. Twitter, Facebook',
+      'widget' => array(
+        'weight' => 10,
+        'type' => 'options_onoff',
+        'module' => 'options',
+        'active' => 1,
+        'settings' => array(
+          'display_label' => 1,
+        ),
+      ), 
+    );
+    field_create_instance($instance);
+  }
+
+}

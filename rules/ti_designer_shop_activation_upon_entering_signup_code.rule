@@ -1,0 +1,10 @@
+{ "rules_ti_designer_shop_activation_upon_entering_signup_code" : {
+    "LABEL" : "TI Designer shop activation upon entering signup code",
+    "PLUGIN" : "reaction rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Activation", "Signup code entered", "Store" ],
+    "REQUIRES" : [ "ti_common" ],
+    "ON" : { "ti_common_entered_signupcode" : [] },
+    "DO" : [ { "ti_common_activate_shop" : { "designer" : [ "user" ] } } ]
+  }
+}

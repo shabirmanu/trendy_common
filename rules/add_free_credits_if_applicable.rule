@@ -1,0 +1,24 @@
+{ "rules_add_free_credits_if_applicable" : {
+    "LABEL" : "Add free credits if applicable",
+    "PLUGIN" : "rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Credits", "Subscribe" ],
+    "REQUIRES" : [ "rules", "commerce_credits" ],
+    "USES VARIABLES" : {
+      "subscription_product" : { "label" : "Subscription Product", "type" : "commerce_product" },
+      "subscriber" : { "label" : "Subscriber", "type" : "user" }
+    },
+    "IF" : [
+      { "entity_has_field" : { "entity" : [ "subscription-product" ], "field" : "field_free_credits" } }
+    ],
+    "DO" : [
+      { "commerce_credits_add" : {
+          "entity" : [ "subscriber" ],
+          "credit_type" : "trendy_indie_credits",
+          "number" : [ "subscription-product:field-free-credits" ]
+        }
+      },
+      { "commerce_credits_set_credits_expiration_date" : { "entity" : [ "subscriber" ], "credit_type" : "trendy_indie_credits" } }
+    ]
+  }
+}

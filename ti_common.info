@@ -1,0 +1,13 @@
+name = Trendy Indie Common
+description = Various common callbacks and features are implemented via hook calls in this modules.
+package = Trendy Indie
+version = 1.0
+core = 7.x
+
+dependencies[] = regcode
+dependencies[] = regcode_mailer
+dependencies[] = rules
+dependencies[] = commerce_store
+dependencies[] = user_role_field
+dependencies[] = privatemsg
+dependencies[] = views

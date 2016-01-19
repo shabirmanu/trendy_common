@@ -1,0 +1,33 @@
+{ "rules_for_every_subscription_product" : {
+    "LABEL" : "For every subscription product",
+    "PLUGIN" : "rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Checkout", "Component", "Subscription" ],
+    "REQUIRES" : [ "inline_conditions", "rules" ],
+    "USES VARIABLES" : { "line_item" : { "label" : "Line Item", "type" : "commerce_line_item" } },
+    "IF" : [
+      { "commerce_product_contains_products" : {
+          "commerce_line_item" : [ "line-item" ],
+          "sku" : "subscr_virtuoso,subscr_dellettante,subscr_artisan,subscr_craftsperson,subscr_starving_artist"
+        }
+      },
+      { "entity_has_field" : { "entity" : [ "line-item" ], "field" : "commerce_product" } }
+    ],
+    "DO" : [
+      { "entity_fetch" : {
+          "USING" : {
+            "type" : "commerce_product",
+            "id" : [ "line-item:commerce-product:product-id" ],
+            "revision_id" : [ "" ]
+          },
+          "PROVIDE" : { "entity_fetched" : { "loaded_line_item_product" : "Line Item Product" } }
+        }
+      },
+      { "component_rules_get_the_associated_user_role_from_product" : {
+          "subscription_product" : [ "loaded-line-item-product" ],
+          "subscriber" : [ "line-item:order:owner" ]
+        }
+      }
+    ]
+  }
+}

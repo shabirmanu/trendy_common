@@ -1,0 +1,39 @@
+{ "rules_for_every_credit_product" : {
+    "LABEL" : "For every credit product",
+    "PLUGIN" : "rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Checkout", "Component", "Credit" ],
+    "REQUIRES" : [ "inline_conditions", "rules", "commerce_credits" ],
+    "USES VARIABLES" : {
+      "line_item" : { "label" : "Line Item", "type" : "commerce_line_item" },
+      "order" : { "label" : "Order", "type" : "commerce_order" }
+    },
+    "IF" : [
+      { "commerce_product_contains_products" : { "commerce_line_item" : [ "line-item" ], "sku" : "trendy-indie-credit" } }
+    ],
+    "DO" : [
+      { "data_convert" : {
+          "USING" : { "type" : "integer", "value" : [ "line-item:quantity" ] },
+          "PROVIDE" : { "conversion_result" : { "ti_credit_quantity" : "Credit quantity" } }
+        }
+      },
+      { "commerce_credits_add" : {
+          "entity" : [ "line-item:order:owner" ],
+          "credit_type" : "trendy_indie_credits",
+          "number" : [ "ti-credit-quantity" ]
+        }
+      },
+      { "drupal_message" : {
+          "message" : "[ti-credit-quantity:value] credits has been added to [order:owner]\u0027s account against the \u003Ca href=\u0022[order:view-url]\u0022\u003Etransaction\u003C\/a\u003E.",
+          "repeat" : 0
+        }
+      },
+      { "data_calc" : {
+          "USING" : { "input_1" : [ "site:current-date" ], "op" : "+", "input_2" : 15552000 },
+          "PROVIDE" : { "result" : { "credit_expiry" : "Credit expiry (180 days ahead)" } }
+        }
+      },
+      { "commerce_credits_set_credits_expiration_date" : { "entity" : [ "order:owner" ], "credit_type" : "trendy_indie_credits" } }
+    ]
+  }
+}

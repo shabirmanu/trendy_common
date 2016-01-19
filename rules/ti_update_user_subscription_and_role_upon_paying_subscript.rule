@@ -1,0 +1,19 @@
+{ "rules_ti_update_user_subscription_and_role_upon_paying_subscript" : {
+    "LABEL" : "TI - Update user subscription and role upon paying subscription fee",
+    "PLUGIN" : "reaction rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Checkout", "Granting premium user role", "Subscribe" ],
+    "REQUIRES" : [ "rules", "commerce_checkout" ],
+    "ON" : { "commerce_checkout_complete" : [] },
+    "DO" : [
+      { "LOOP" : {
+          "USING" : { "list" : [ "commerce-order:commerce-line-items" ] },
+          "ITEM" : { "ti_current_list_item" : "TI Current list item" },
+          "DO" : [
+            { "component_rules_for_every_subscription_product" : { "line_item" : [ "ti-current-list-item" ] } }
+          ]
+        }
+      }
+    ]
+  }
+}

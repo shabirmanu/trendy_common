@@ -1,0 +1,34 @@
+{ "rules_get_the_associated_user_role_from_product" : {
+    "LABEL" : "Extract the user role from subscription and assign the role",
+    "PLUGIN" : "rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Product", "Role" ],
+    "REQUIRES" : [ "rules", "role_expire" ],
+    "USES VARIABLES" : {
+      "subscription_product" : { "label" : "Subscription Product", "type" : "commerce_product" },
+      "subscriber" : { "label" : "Subscriber", "type" : "user" }
+    },
+    "IF" : [
+      { "entity_has_field" : { "entity" : [ "subscription-product" ], "field" : "field_role" } },
+      { "entity_has_field" : { "entity" : [ "subscription-product" ], "field" : "field_free_credits" } }
+    ],
+    "DO" : [
+      { "data_set" : {
+          "data" : [ "subscriber:roles:0" ],
+          "value" : [ "subscription-product:field-role" ]
+        }
+      },
+      { "role_expire_rules_action_set_role_expire" : {
+          "user" : [ "subscriber" ],
+          "role" : [ "subscription-product:field-role" ],
+          "timestamp" : { "select" : "site:current-date", "date_offset" : { "value" : 2592000 } }
+        }
+      },
+      { "component_rules_add_free_credits_if_applicable" : {
+          "subscription_product" : [ "subscription_product" ],
+          "subscriber" : [ "subscriber" ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{ "rules_ti_updaing_credits_on_checkout" : {
+    "LABEL" : "TI - Updating credits on checkout",
+    "PLUGIN" : "reaction rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Checkout", "Credtis" ],
+    "REQUIRES" : [ "rules", "commerce_checkout" ],
+    "ON" : { "commerce_checkout_complete" : [] },
+    "DO" : [
+      { "LOOP" : {
+          "USING" : { "list" : [ "commerce-order:commerce-line-items" ] },
+          "ITEM" : { "ti_current_list_item" : "TI Current list item" },
+          "DO" : [
+            { "component_rules_for_every_credit_product" : {
+                "line_item" : [ "ti-current-list-item" ],
+                "order" : [ "commerce-order" ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

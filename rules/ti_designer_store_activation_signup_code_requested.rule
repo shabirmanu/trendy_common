@@ -1,0 +1,10 @@
+{ "rules_ti_designer_store_activation_signup_code_requested" : {
+    "LABEL" : "TI Designer store activation signup code requested",
+    "PLUGIN" : "reaction rule",
+    "OWNER" : "rules",
+    "TAGS" : [ "Signup code request", "Store", "Trendyindie" ],
+    "REQUIRES" : [ "ti_common" ],
+    "ON" : { "ti_common_requested_invitation" : [] },
+    "DO" : [ { "ti_common_process_shop_invitation" : { "designer" : [ "user" ] } } ]
+  }
+}
